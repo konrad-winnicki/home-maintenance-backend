@@ -45,16 +45,14 @@ class Product:
 
 
 
-barcode_database = {}
+file_location = ""
 
-class MyEncoder(JSONEncoder):
-    def defoult(self, o):
-        return o.__dict__
 
 def save_to_json(dictionary, file_name):
+    file_path = file_location + file_name
     encoded = jsonpickle.encode(dictionary)
 
-    with open(file_name, "w", encoding="utf-8") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         json.dump(encoded, file)
 
 def for_frontend(dane):
@@ -69,7 +67,12 @@ def for_frontend(dane):
 
 
 def open_json(file_name):
-    with open(file_name, "r", encoding="utf-8") as file:
+    file_path = file_location + file_name
+    if not os.path.exists(file_path):
+        with open(file_path, "wt", encoding="utf-8") as file:
+            file.write("\"{}\"")
+
+    with open(file_path, "r", encoding="utf-8") as file:
         encoded_data = json.load(file)
         aa = jsonpickle.decode(encoded_data)
 
@@ -255,6 +258,8 @@ def update_product(id):
 on_local_environment = os.getenv('VERCEL') is None
 if on_local_environment:
     app.run(host="0.0.0.0", port=int("8080"), debug=True)
+else:
+    file_location = "/tmp/"
 
 
 

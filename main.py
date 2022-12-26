@@ -1,3 +1,4 @@
+import os
 from json import JSONEncoder
 from json import JSONDecoder
 import jsonpickle
@@ -59,8 +60,8 @@ def save_to_json(dictionary, file_name):
 def for_frontend(dane):
     dictionary = []
     for k, v in dane.items():
-        dictionary.append(vars(v))
-    return json.dumps(dictionary)
+        dictionary.append(v)
+    return jsonpickle.encode(dictionary, unpicklable=False)
 
 
 
@@ -250,7 +251,10 @@ def update_product(id):
     return result, 201
 
 
-app.run(host="0.0.0.0", port=int("8080"), debug=True)
+# the http server is run manually only during local development
+on_local_environment = os.getenv('VERCEL') is None
+if on_local_environment:
+    app.run(host="0.0.0.0", port=int("8080"), debug=True)
 
 
 

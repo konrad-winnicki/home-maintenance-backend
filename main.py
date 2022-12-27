@@ -84,11 +84,6 @@ def check_if_product_in_database(name, data_base):
             return True
     return False
 
-def get_id_from_name(name, data_base):
-    for id, object in data_base.items():
-        if object.name == name:
-            return id
-
 def ad_barcode_to_database(barcode, name):
     list_of_barcodes = open_json("barcode_list.json")
     list_of_barcodes.update({barcode: name})
@@ -96,10 +91,10 @@ def ad_barcode_to_database(barcode, name):
 
 def check_barcode_in_database(barcode):
     list_of_barcodes = open_json("barcode_list.json")
-    product_name = list_of_barcodes.get(barcode)
-    if product_name is None:
+    product_id = list_of_barcodes.get(barcode)
+    if product_id is None:
         raise ProductDoesNotExist
-    return product_name
+    return product_id
 
 
 def add_product_with_barcode(barcode, product_name):
@@ -176,27 +171,18 @@ def create_product():
     barcode = data.get("barcode")
     if barcode is not None and product_name is None:
         try:
-            product_name = check_barcode_in_database(barcode)
-            product_database = open_json("product_list.json")
-            product_id = get_id_from_name(product_name, product_database)
-            result = update_product_quantity(product_id, 1)
-
-
+            product_id = check_barcode_in_database(barcode)
+            result = update_product_quantity(product_id, quantity=1)
         except ProductDoesNotExist:
             return "Not exist", 404
         return result, 201
 
     if barcode is not None and product_name is not None:
         try:
-            ad_barcode_to_database(barcode, product_name)
-            product_database = open_json("product_list.json")
-            if check_if_product_in_database(product_name, product_database):
-                product_id = get_id_from_name(product_name, product_database)
-                result = update_product_quantity(product_id, 1)
-                return jsonify({"actualize": result}), 201
-            else:
-                result = add_product(product_name, 1)
-                return result, 201
+            result = add_product(product_name, 1)
+            ad_barcode_to_database(barcode, result.get("id"))
+
+            return result, 201
         except ProductAlreadyExists:
             return product_name + " already exists", 409
         except Error:
@@ -261,11 +247,3 @@ if on_local_environment:
 else:
     file_location = "/tmp/"
 
-
-
-#list_of_products.update({1: Product(1, "sug", 2)})
-#list_of_products.update({2: Product(2, "milk", 3)})
-
-
-#gg=jsonpickle.encode(list_of_products)
-#print(gg)

@@ -241,9 +241,9 @@ def update_product(id):
 
 
 # the http server is run manually only during local development
-on_local_environment = os.getenv('VERCEL') is None
+on_local_environment = os.getenv('FLY_APP_NAME') is None
 if on_local_environment:
     app.run(host="0.0.0.0", port=int("8080"), debug=True)
 else:
-    file_location = "/tmp/"
+    file_location = "/tmp/" # TODO: remove it
 

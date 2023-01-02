@@ -20,6 +20,9 @@ class ProductAlreadyExists(Exception):
 class ProductDoesNotExists(Exception):
     pass
 
+class ProductOnlyInBarcodeDatabase(Exception):
+    pass
+
 class ProductDoesNotExist(Exception):
     pass
 
@@ -27,22 +30,19 @@ class ProductDoesNotExist(Exception):
 class Error(Exception):
     pass
 
+class Barcode:
+    def __init__(self, barcode, product_id, name):
+        self.barcode = barcode
+        self.product_id = product_id
+        self.name = name
+
+
 class Product:
 
     def __init__(self, product_id, name, quantity):
-        self.id = product_id
+        self.product_id = product_id
         self.name = name
         self.quantity = quantity
-
-
-
-
-    #def change_quantity(self, quantity):
-       # self.quantity += quantity
-
-    #def change_name(self, new_name):
-        #self.name = new_name
-
 
 
 file_location = ""
@@ -84,40 +84,40 @@ def check_if_product_in_database(name, data_base):
             return True
     return False
 
-def ad_barcode_to_database(barcode, name):
+def find_barcode_for_product_id(product_id, barcode_dtb):
+    for barcode, object in barcode_dtb.items():
+        if object.product_id == product_id:
+            return barcode
+
+def ad_barcode_to_database(barcode, id, name):
     list_of_barcodes = open_json("barcode_list.json")
-    list_of_barcodes.update({barcode: name})
+    list_of_barcodes.update({barcode: Barcode(barcode, id, name)})
+    if list_of_barcodes.get(barcode) is None:
+        raise Error
     save_to_json(list_of_barcodes, "barcode_list.json")
 
 def check_barcode_in_database(barcode):
     list_of_barcodes = open_json("barcode_list.json")
-    product_id = list_of_barcodes.get(barcode)
-    if product_id is None:
+    barcode_object = list_of_barcodes.get(barcode)
+    if barcode_object is None:
         raise ProductDoesNotExist
-    return product_id
+    return barcode_object
 
 
-def add_product_with_barcode(barcode, product_name):
+def add_product(product_name, quantity, product_id=None):
+    p_id = product_id
+
     list_of_products = open_json("product_list.json")
     if check_if_product_in_database(product_name, list_of_products):
         raise ProductAlreadyExists
-    list_of_products.update({barcode: Product(barcode, product_name, 1)})
-    if list_of_products.get(barcode) is None:
-        raise Error
-    save_to_json(list_of_products, "product_list.json")
-    return vars(list_of_products.get(barcode))
-
-def add_product(product_name, quantity):
-    list_of_products = open_json("product_list.json")
-    if check_if_product_in_database(product_name, list_of_products):
-            raise ProductAlreadyExists
-    id = uuid.uuid4().__str__()
-    list_of_products.update({id: Product(id, product_name, quantity)})
-    if list_of_products.get(id) is None:
+    if p_id is None:
+        p_id = uuid.uuid4().__str__()
+    list_of_products.update({p_id: Product(p_id, product_name, quantity)})
+    if list_of_products.get(p_id) is None:
         raise Error
     save_to_json(list_of_products, "product_list.json")
 
-    return vars(list_of_products.get(id))
+    return vars(list_of_products.get(p_id))
 
 def delete(product_id):
     product_list = open_json("product_list.json")
@@ -131,25 +131,29 @@ def delete(product_id):
 
 def change_name(product_id, former_name, new_name):
     product_list = open_json("product_list.json")
+    list_of_barcodes = open_json("barcode_list.json")
     if product_list.get(product_id) is None:
         raise ProductDoesNotExist
     if check_if_product_in_database(new_name, product_list):
         raise ProductAlreadyExists
     product_list[product_id].name = new_name
-
-    if product_list[product_id].name != new_name:
-        raise Error
+    barcode = find_barcode_for_product_id(product_id, list_of_barcodes)
+    if barcode is not None:
+        list_of_barcodes[barcode].name = new_name
+        if product_list[product_id].name != new_name:
+            raise Error
     save_to_json(product_list, "product_list.json")
-    return {"id": product_id, "new_name": product_list[product_id].name, "former_name": former_name}
+    save_to_json(list_of_barcodes, "barcode_list.json")
+    return {"product_id": product_id, "new_name": product_list[product_id].name, "former_name": former_name}
 
 def update_product_quantity(product_id, quantity):
     product_list = open_json("product_list.json")
     if product_list.get(product_id) is None:
-        raise ProductDoesNotExist
+        raise ProductOnlyInBarcodeDatabase
     quantity_to_change = product_list[product_id].quantity
-    print("to change", quantity_to_change)
+
     product_list[product_id].quantity += quantity
-    print("after, ", product_list[product_id].quantity)
+
     if product_list[product_id].quantity == quantity_to_change:
         raise Error
     save_to_json(product_list, "product_list.json")
@@ -169,18 +173,36 @@ def create_product():
     product_name = data.get('name')
     quantity = data.get('quantity')
     barcode = data.get("barcode")
+
     if barcode is not None and product_name is None:
+        product_id = None
+        product_name = None
+
         try:
-            product_id = check_barcode_in_database(barcode)
+            barcode_object = check_barcode_in_database(barcode)
+            product_id = barcode_object.product_id
+            product_name = barcode_object.name
             result = update_product_quantity(product_id, quantity=1)
+        except ProductOnlyInBarcodeDatabase:
+            try:
+
+                added_product = add_product(product_name, 1, product_id)
+
+                result = jsonify({"product_in_barcode_database": added_product})
+                return result, 201
+            except ProductAlreadyExists:
+                return "Product with importing name already exists", 409
+
         except ProductDoesNotExist:
             return "Not exist", 404
+
         return result, 201
 
     if barcode is not None and product_name is not None:
         try:
-            result = add_product(product_name, 1)
-            ad_barcode_to_database(barcode, result.get("id"))
+            result = add_product(product_name, 1, product_id=None)
+            product_id = result.get("product_id")
+            ad_barcode_to_database(barcode, product_id, product_name)
 
             return result, 201
         except ProductAlreadyExists:
@@ -192,7 +214,7 @@ def create_product():
     if product_name is None or quantity is None:
         return "400", 400
     try:
-        result = add_product(product_name, quantity)
+        result = add_product(product_name, quantity, product_id=None)
     except ProductAlreadyExists:
         return product_name + " already exists", 409
     except Error:

@@ -24,3 +24,21 @@ FLY_APP_NAME=anyvalue gunicorn main:app
 ```
 
 When environment variable is set - the internal http server is not started.
+
+## Deploying to production
+
+To deploy new version:
+```shell
+flyctl deploy
+```
+
+Checking logs:
+```shell
+flyctl logs
+```
+
+Logging in into production server:
+```shell
+flyctl ssh issue --agent
+flyctl ssh console
+```

@@ -129,7 +129,7 @@ def delete(product_id):
     save_to_json(product_list, "product_list.json")
     return jsonify({product_id: "deleted"})
 
-def change_name(product_id, former_name, new_name):
+def change_name(product_id, new_name):
     product_list = open_json("product_list.json")
     list_of_barcodes = open_json("barcode_list.json")
     if product_list.get(product_id) is None:
@@ -144,7 +144,7 @@ def change_name(product_id, former_name, new_name):
             raise Error
     save_to_json(product_list, "product_list.json")
     save_to_json(list_of_barcodes, "barcode_list.json")
-    return {"product_id": product_id, "new_name": product_list[product_id].name, "former_name": former_name}
+    return {"product_id": product_id, "new_name": product_list[product_id].name}
 
 def update_product_quantity(product_id, quantity):
     product_list = open_json("product_list.json")
@@ -248,11 +248,10 @@ def update_product(id):
                 return "422", 422
             result = update_product_quantity(product_id, quantity)
         if request.method == "PATCH":
-            name_to_change = request_data.get('name_to_change')
             new_name = request_data.get('new_name')
-            if new_name is None or name_to_change is None:
+            if new_name is None:
                 return "422", 422
-            result = change_name(product_id, name_to_change, new_name)
+            result = change_name(product_id, new_name)
     except ProductAlreadyExists:
         return new_name + " already exists", 409
     except ProductDoesNotExist:

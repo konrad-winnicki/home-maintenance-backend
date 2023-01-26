@@ -113,9 +113,10 @@ def add_product(product_name, quantity, product_id=None):
     if p_id is None:
         p_id = uuid.uuid4().__str__()
     list_of_products.update({p_id: Product(p_id, product_name, quantity)})
+    sorted_list = dict(sorted(list_of_products.items(), key=lambda item: item[1].name))
     if list_of_products.get(p_id) is None:
         raise Error
-    save_to_json(list_of_products, "product_list.json")
+    save_to_json(sorted_list, "product_list.json")
 
     return vars(list_of_products.get(p_id))
 
@@ -142,7 +143,8 @@ def change_name(product_id, new_name):
         list_of_barcodes[barcode].name = new_name
         if product_list[product_id].name != new_name:
             raise Error
-    save_to_json(product_list, "product_list.json")
+    sorted_list = dict(sorted(product_list.items(), key=lambda item: item[1].name))
+    save_to_json(sorted_list, "product_list.json")
     save_to_json(list_of_barcodes, "barcode_list.json")
     return {"product_id": product_id, "new_name": product_list[product_id].name}
 

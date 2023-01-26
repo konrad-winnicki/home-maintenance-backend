@@ -1,1 +1,1 @@
-"{}"
+"{\"9a175cd3-7bfb-4feb-beb9-0637694dfe9c\": {\"py/object\": \"__main__.Product\", \"product_id\": \"9a175cd3-7bfb-4feb-beb9-0637694dfe9c\", \"name\": \"ala\", \"quantity\": 2}, \"85165caf-17a6-4e32-8572-5709e738f994\": {\"py/object\": \"__main__.Product\", \"product_id\": \"85165caf-17a6-4e32-8572-5709e738f994\", \"name\": \"bela\", \"quantity\": 1}, \"49f24c9a-74c1-4ae3-bf22-63b48adb7057\": {\"py/object\": \"__main__.Product\", \"product_id\": \"49f24c9a-74c1-4ae3-bf22-63b48adb7057\", \"name\": \"zela\", \"quantity\": 1}}"

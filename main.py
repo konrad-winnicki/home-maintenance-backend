@@ -71,6 +71,10 @@ def insert_product(productId, name):
     query_sql = "INSERT INTO products VALUES (%s, %s)"
     execute_sql_query(query_sql, (productId, name))
 
+def insert_product_with_name(name):
+    product_id = generate_product_id()
+    insert_product(product_id, name)
+    return product_id
 
 def execute_sql_query(query_sql, query_values):
     connection = open_conection()
@@ -97,7 +101,7 @@ def get_product_id_for_barcode(searched_value):
     return fetch_result
 
 
-def get_product_id_for_product_name(searched_value):
+def get_product_id_by_name(searched_value):
     query_sql = "select * from products where name=%s"
     fetch_result = execute_fetch(query_sql, searched_value)
     if fetch_result:
@@ -129,28 +133,28 @@ def increase_product_quantity_in_magazyn(product_id, quantity):
     return "Product quantity changed"
 
 
-def change_product_name_in_products(name, product_id):
+def change_product_name(product_id, name):
     query_sql = "update products SET name=%s where product_id=%s"
     execute_sql_query(query_sql, (name, product_id))
     return "Product name changed in database"
 
 
-def change_product_id_in_magazyn(product_id, new_id):
+def replace_product_in_magazyn(product_id, new_id):
     query_sql = "update magazyn SET product_id=%s where product_id=%s"
     execute_sql_query(query_sql, (new_id, product_id))
     return "Product name changed in database"
 
 
-def establish_product_id():
+def generate_product_id():
     return uuid.uuid4().__str__()
 
 
 def change_name(product_id, new_name):
-    product_id_for_new_name = get_product_id_for_product_name(new_name)
-    if product_id_for_new_name:
-        change_product_id_in_magazyn(product_id, product_id_for_new_name)
+    maybe_existing_product_id = get_product_id_by_name(new_name)
+    if maybe_existing_product_id:
+        replace_product_in_magazyn(product_id, maybe_existing_product_id)
     else:
-        change_product_name_in_products(new_name, product_id)
+        change_product_name(product_id, new_name)
 
     return "Product name changed"
 
@@ -163,46 +167,60 @@ def get_product():
 @app.route("/products/", methods=["POST"])
 def create_product():
     data = request.json
-    product_name = data.get('name')
-    quantity = data.get('quantity')
+    name = data.get('name')
     barcode = data.get("barcode")
 
-    if barcode is not None and product_name is None:
-        product_id_for_barcode = get_product_id_for_barcode(barcode)
-        if not product_id_for_barcode:
-            return "Not exist", 404
-        try:
-            insert_product_to_magazyn(product_id_for_barcode, 1)
-        except ProductAlreadyExists:
-            increase_product_quantity_in_magazyn(product_id_for_barcode, 1)
-        return "Product added to database", 201
+    if barcode and name:
+        return add_product_with_barcode_and_name(barcode, name)
 
-    elif barcode is not None and product_name is not None:
-        product_id_for_name = get_product_id_for_product_name(product_name)
-        if not product_id_for_name:
-            product_id_for_name = establish_product_id()
-            product_id_for_name = product_id_for_name
-            insert_product(product_id_for_name, product_name)
+    elif barcode:
+        return add_product_with_barcode(barcode)
+
+    elif name:
+        return add_product_with_name(name)
+
+    return "Name or barcode must be specified", 400
+
+
+def add_product_with_name(name):
+    existing_product_id = get_product_id_by_name(name)
+    try:
+        if existing_product_id:
+            product_id = existing_product_id
         else:
-            insert_barcode(barcode, product_id_for_name)
-        try:
-            insert_product_to_magazyn(product_id_for_name, 1)
-        except ProductAlreadyExists:
-            increase_product_quantity_in_magazyn(product_id_for_name, 1)
-        return "Product added to database", 201
+            product_id = insert_product_with_name(name)
 
-    elif product_name and quantity:
-        product_id_for_name = get_product_id_for_product_name(product_name)
-        try:
-            if not product_id_for_name:
-                product_id_for_name = establish_product_id()
-                insert_product(product_id_for_name, product_name)
-            insert_product_to_magazyn(product_id_for_name, 1)
-        except ProductAlreadyExists:
-            return product_name + " already exists", 409
-        return "Product added to database", 201
+        insert_product_to_magazyn(product_id, 1)
+    except ProductAlreadyExists:
+        return name + " already exists", 409
+    return "Product added to database", 201
 
-    return "422", 422
+
+def add_product_with_barcode_and_name(barcode, name):
+    existing_product_id = get_product_id_by_name(name)
+    if existing_product_id:
+        product_id = existing_product_id
+    else:
+        product_id = insert_product_with_name(name)
+
+    insert_barcode(barcode, product_id)  # what if barcode already exists?
+    add_product_to_magazyn(product_id)
+    return "Product added to database", 201
+
+
+def add_product_to_magazyn(product_id):
+    try:
+        insert_product_to_magazyn(product_id, 1)
+    except ProductAlreadyExists:
+        increase_product_quantity_in_magazyn(product_id, 1)
+
+
+def add_product_with_barcode(barcode):
+    existing_product_id = get_product_id_for_barcode(barcode)
+    if not existing_product_id:
+        return "Barcode not found and name not given", 404
+    add_product_to_magazyn(existing_product_id)
+    return "Product added to database", 201
 
 
 @app.route("/products/<id>", methods=["DELETE"])

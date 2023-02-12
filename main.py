@@ -6,16 +6,18 @@ from flask import request
 from flask_cors import CORS
 
 import uuid
-import mysql.connector
-from mysql.connector import errorcode
-#from mysql.connector import Error
+import psycopg2
+from psycopg2 import OperationalError, errorcodes, extras
+from psycopg2.errors import UniqueViolation
 
 # TODO zwrocic tylko status, dodac zwrotny response do wyswietlenia
 app = Flask('kitchen-maintenance')
 CORS(app)
 
+
 class ProductAlreadyExists(Exception):
     pass
+
 
 class Error(Exception):
     pass
@@ -24,37 +26,25 @@ class Error(Exception):
 def open_conection():
     connection = None
     try:
-        connection = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            passwd="Mafalda12123613!",
-            db="test"
+        connection = psycopg2.connect(
+            host="postgres.c3gdxucwufp2.eu-west-2.rds.amazonaws.com",
+            user="postgres",
+            password="krowa333",
+            port="5432",
+            database="postgres"
+
         )
-        print("Connection to MySQL DB successful")
-    except Error as e:
+        print("Connection to PostgresSQL DB successful")
+    except OperationalError as e:
         print(f"The error '{e}' occurred")
     return connection
 
 
 def close_connection(connection, cursor):
-    if connection.is_connected():
+    if connection is not None:
         cursor.close()
         connection.close()
-        print("MySQL connection is closed")
-
-
-def get_products_from_database():
-    connection = open_conection()
-    cursor = connection.cursor(dictionary=True)
-    query_sql = "select magazyn.product_id, name, quantity from magazyn join products on " \
-    "magazyn.product_id = products.product_id order by products.name"
-    try:
-        cursor.execute(query_sql)
-        return cursor.fetchall()
-    except Error as e:
-        print(f"The error '{e}' occurred")
-    finally:
-        close_connection(connection, cursor)
+        print("Postgres SQL connection is closed")
 
 
 def insert_product_to_magazyn(productId, quantity):
@@ -64,33 +54,52 @@ def insert_product_to_magazyn(productId, quantity):
 
 def insert_barcode(barcode, productId):
     query_sql = "INSERT INTO barcodes VALUES (%s, %s)"
-    execute_sql_query(query_sql, (barcode, productId))
+    execute_sql_query(query_sql, (productId, barcode))
 
 
 def insert_product(productId, name):
     query_sql = "INSERT INTO products VALUES (%s, %s)"
     execute_sql_query(query_sql, (productId, name))
 
+
 def insert_product_with_name(name):
     product_id = generate_product_id()
     insert_product(product_id, name)
     return product_id
 
+
 def execute_sql_query(query_sql, query_values):
     connection = open_conection()
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     try:
         cursor.execute(query_sql, query_values)
         connection.commit()
         print("Product inserted successfully")
-    except Exception as err:
-        if err.errno == 1062:
-            raise ProductAlreadyExists
-        else:
-            print(err)
+    except UniqueViolation:
+        raise ProductAlreadyExists
+    except Error as err:
+        print(err)
     finally:
         close_connection(connection, cursor)
     return "Product added to database"
+
+
+def get_products_from_database():
+    connection = open_conection()
+    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    query_sql = "select magazyn.product_id, name, quantity from magazyn join products on " \
+                "magazyn.product_id = products.product_id order by products.name"
+    try:
+        cursor.execute(query_sql)
+        result = []
+        for row in cursor.fetchall():
+            result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
+        return result
+
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    finally:
+        close_connection(connection, cursor)
 
 
 def get_product_id_for_barcode(searched_value):
@@ -111,7 +120,7 @@ def get_product_id_by_name(searched_value):
 
 def execute_fetch(query_sql, searched_value):
     connection = open_conection()
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cursor.execute(query_sql, (searched_value,))
         query_result = cursor.fetchone()
@@ -157,6 +166,29 @@ def change_name(product_id, new_name):
         change_product_name(product_id, new_name)
 
     return "Product name changed"
+
+
+def create_tables():
+    connection = open_conection()
+    cursor = connection.cursor()
+    tables = (
+        """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE) """,
+        """ CREATE TABLE magazyn (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, 
+        CONSTRAINT fk_m FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
+        """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
+        CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
+
+    )
+    try:
+        for table in tables:
+            print("creating table: ", table)
+            cursor.execute(table)
+            connection.commit()
+        print("Tables established successfully")
+    except OperationalError as e:
+        print(f"The error '{e}' occurred")
+    finally:
+        close_connection(connection, cursor)
 
 
 @app.route("/products/", methods=["GET"])
@@ -234,6 +266,7 @@ def delete_product(id):
         return "500", 500
     return "Product deleted from magazyn", 200
 
+
 @app.route("/products/<id>", methods=["PUT", "PATCH"])
 def update_product(id):
     request_data = request.json
@@ -261,7 +294,12 @@ def update_product(id):
 
 # the http server is run manually only during local development
 on_local_environment = os.getenv('FLY_APP_NAME') is None
+print('on_local_env:', on_local_environment)
 if on_local_environment:
-    app.run(host="0.0.0.0", port=int("8080"), debug=True)
+    # print('before create tables')
+    # create_tables()
+    app.run(host="0.0.0.0", port=int("8080"), debug=False)
+
 else:
-    file_location = "/tmp/" # TODO: remove it
+    print('before create tables')
+    create_tables()

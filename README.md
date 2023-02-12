@@ -14,6 +14,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## Generating requirements.txt
+```shell
+pip freeze > requirements.txt
+```
+
 ## Running application locally
 
 To run locally the app in a similar way as it will be run on production it is started using a WSGI http server (gunicorn).

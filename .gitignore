@@ -1,4 +1,9 @@
 .idea
-.venv
-.vercel
+venv
+.env
+3tabele.txt
+ostatni.txt
+pierwszysql.txt
+.sessions
+sessions/
 __pycache__

@@ -1,18 +1,54 @@
 import os
+import json
+import datetime
+from flask import Flask, redirect, request, url_for, jsonify, render_template, session
 
-from flask import Flask, jsonify
-from flask import request
-
+from flask_login import LoginManager
+from datetime import timedelta
+from datetime import datetime
 from flask_cors import CORS
 
 import uuid
 import psycopg2
 from psycopg2 import OperationalError, errorcodes, extras
 from psycopg2.errors import UniqueViolation
+from decouple import config
+
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
+from oauthlib.oauth2 import WebApplicationClient
+import requests
+from flask_session import Session
+
+active_sessions = {}
 
 # TODO zwrocic tylko status, dodac zwrotny response do wyswietlenia
 app = Flask('kitchen-maintenance')
+# app.config['SESSION_PERMANENT'] = True
+# app.config['SESSION_TYPE'] = 'filesystem'
+# app.config['SESSION_FILE_DIR'] = "C:/Users/konrad/pythonProject/kitchen_maintenance_class/sessions/"
+# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5)
+# app.config['SECRET_KEY'] = "ala"
+# sess = Session()
+# sess.init_app(app)
 CORS(app)
+
+# OAUTH.2
+
+client = WebApplicationClient(config('GOOGLE_CLIENT_ID'))
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
+GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
+GOOGLE_DISCOVERY_URL = (
+    "https://accounts.google.com/.well-known/openid-configuration"
+)
+
+
+# OAUTH.2
 
 
 class ProductAlreadyExists(Exception):
@@ -23,16 +59,60 @@ class Error(Exception):
     pass
 
 
-def open_conection():
+def get_google_provider_cfg():
+    return requests.get(GOOGLE_DISCOVERY_URL).json()
+
+
+def get_token(code):
+    print("code w get_token", code)
+    google_provider_cfg = get_google_provider_cfg()
+    token_endpoint = google_provider_cfg["token_endpoint"]
+    print("request url in get token:", request.url)
+    print("redirect url in get token: ", request.base_url)
+    # test manually opening in browser:
+    # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=https://localhost:5000/code/
+    # already working one:
+    # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=http://localhost:5000
+    token_url, headers, body = client.prepare_token_request(  # tu leci
+        token_endpoint,
+        # authorization_response=request.url, #required - from it it mines code etc.
+        redirect_url=request.base_url,
+        code=code
+    )
+
+    print("token url z get token", token_url)
+    print("headers z get token ", headers)
+    print("body get token", body)
+    token_response = requests.post(
+        token_url,
+        headers=headers,
+        data=body,
+        auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+    )
+    client.parse_request_body_response(json.dumps(token_response.json()))
+
+
+def get_user_info():
+    google_provider_cfg = get_google_provider_cfg()
+    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+    uri, headers, body = client.add_token(userinfo_endpoint)
+    userinfo_response = requests.get(uri, headers=headers, data=body)
+    if userinfo_response.json().get("email_verified"):
+        unique_id = userinfo_response.json()["sub"]
+        return unique_id
+    else:
+        return "denied"
+
+
+def open_connection():
     connection = None
     try:
         connection = psycopg2.connect(
             host="postgres.c3gdxucwufp2.eu-west-2.rds.amazonaws.com",
             user="postgres",
-            password="krowa333",
+            password=config('POSTGRES_PASSWORD'),
             port="5432",
             database="postgres"
-
         )
         print("Connection to PostgresSQL DB successful")
     except OperationalError as e:
@@ -47,29 +127,42 @@ def close_connection(connection, cursor):
         print("Postgres SQL connection is closed")
 
 
-def insert_product_to_magazyn(productId, quantity):
-    query_sql = "INSERT INTO magazyn VALUES (%s, %s)"
-    execute_sql_query(query_sql, (productId, quantity))
+def insert_product_to_store_positions(productId, quantity, user_id):
+    query_sql = "INSERT INTO store_positions VALUES (%s, %s, %s)"
+    execute_sql_query(query_sql, (productId, quantity, user_id))
 
 
-def insert_barcode(barcode, productId):
-    query_sql = "INSERT INTO barcodes VALUES (%s, %s)"
-    execute_sql_query(query_sql, (productId, barcode))
+def insert_user_to_users(user_account_number):
+    user_id = generate_unique_id()
+    query_sql = "INSERT INTO users VALUES (%s, %s)"
+    execute_sql_query(query_sql, (user_id, user_account_number))
+    return user_id
 
 
-def insert_product(productId, name):
-    query_sql = "INSERT INTO products VALUES (%s, %s)"
-    execute_sql_query(query_sql, (productId, name))
+def insert_barcode(barcode, productId, user_id):
+    query_sql = "INSERT INTO barcodes VALUES (%s, %s, %s)"
+    execute_sql_query(query_sql, (productId, barcode, user_id))
 
 
-def insert_product_with_name(name):
-    product_id = generate_product_id()
-    insert_product(product_id, name)
+def insert_product(productId, name, user_id):
+    query_sql = "INSERT INTO products VALUES (%s, %s, %s)"
+    execute_sql_query(query_sql, (productId, name, user_id))
+
+
+def insert_product_with_name(name, user_id):
+    product_id = generate_unique_id()
+    insert_product(product_id, name, user_id)
     return product_id
 
 
+def check_if_database_is_filled(table_schema):
+    query_sql = "select table_name from information_schema.tables where table_schema=%s"
+    fetch_result = execute_fetch(query_sql, (table_schema,))
+    return fetch_result
+
+
 def execute_sql_query(query_sql, query_values):
-    connection = open_conection()
+    connection = open_connection()
     cursor = connection.cursor()
     try:
         cursor.execute(query_sql, query_values)
@@ -84,45 +177,51 @@ def execute_sql_query(query_sql, query_values):
     return "Product added to database"
 
 
-def get_products_from_database():
-    connection = open_conection()
+def get_products_from_database(user_id):
+    connection = open_connection()
     cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    query_sql = "select magazyn.product_id, name, quantity from magazyn join products on " \
-                "magazyn.product_id = products.product_id order by products.name"
+    query_sql = 'select store_positions.product_id, name, quantity from store_positions join products on store_positions.product_id = products.product_id where store_positions.user_id=%s order by products.name'
     try:
-        cursor.execute(query_sql)
+        cursor.execute(query_sql, (user_id,))
         result = []
         for row in cursor.fetchall():
             result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
         return result
-
     except Error as e:
         print(f"The error '{e}' occurred")
     finally:
         close_connection(connection, cursor)
 
 
-def get_product_id_for_barcode(searched_value):
-    query_sql = "select * from barcodes where barcode=%s"
-    fetch_result = execute_fetch(query_sql, searched_value)
+def get_user_from_users(user_account_number):
+    query_sql = "select * from users where user_account_number=%s"
+    fetch_result = execute_fetch(query_sql, (user_account_number,))
+    if fetch_result:
+        return fetch_result.get("user_id")
+    return fetch_result
+
+
+def get_product_id_for_barcode(barcode, user_id):
+    query_sql = "select * from barcodes where barcode=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, (barcode, user_id,))
     if fetch_result:
         return fetch_result.get("product_id")
     return fetch_result
 
 
-def get_product_id_by_name(searched_value):
-    query_sql = "select * from products where name=%s"
-    fetch_result = execute_fetch(query_sql, searched_value)
+def get_product_id_by_name(name, user_id):
+    query_sql = "select * from products where name=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, (name, user_id,))
     if fetch_result:
         return fetch_result.get("product_id")
     return fetch_result
 
 
 def execute_fetch(query_sql, searched_value):
-    connection = open_conection()
+    connection = open_connection()
     cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cursor.execute(query_sql, (searched_value,))
+        cursor.execute(query_sql, searched_value)
         query_result = cursor.fetchone()
     except Error as e:
         print(f"The error '{e}' occurred")
@@ -131,49 +230,55 @@ def execute_fetch(query_sql, searched_value):
     return query_result
 
 
-def delete_product_from_magazyn(product_id):
-    query_sql = "DELETE FROM magazyn WHERE product_id=%s"
-    execute_sql_query(query_sql, (product_id,))
+def delete_product_from_store_positions(product_id, user_id):
+    query_sql = "DELETE FROM store_positions WHERE product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (product_id, user_id,))
 
 
-def increase_product_quantity_in_magazyn(product_id, quantity):
-    query_sql = "update magazyn SET quantity=quantity+%s where product_id=%s"
-    execute_sql_query(query_sql, (quantity, product_id))
+def increase_product_quantity_in_store_positions(product_id, quantity, user_id):
+    query_sql = "update store_positions SET quantity=quantity+%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (quantity, product_id, user_id,))
     return "Product quantity changed"
 
 
-def change_product_name(product_id, name):
-    query_sql = "update products SET name=%s where product_id=%s"
-    execute_sql_query(query_sql, (name, product_id))
+def change_product_name(product_id, name, user_id):
+    query_sql = "update products SET name=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (name, product_id, user_id,))
     return "Product name changed in database"
 
 
-def replace_product_in_magazyn(product_id, new_id):
-    query_sql = "update magazyn SET product_id=%s where product_id=%s"
-    execute_sql_query(query_sql, (new_id, product_id))
+def replace_product_in_store_positions(product_id, new_id, user_id):
+    query_sql = "update store_positions SET product_id=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (new_id, product_id, user_id,))
     return "Product name changed in database"
 
 
-def generate_product_id():
+def generate_unique_id():
     return uuid.uuid4().__str__()
 
 
-def change_name(product_id, new_name):
-    maybe_existing_product_id = get_product_id_by_name(new_name)
+def check_if_user_has_active_session(request):
+    session_code = request.headers.get("Authorization")
+    user_id = active_sessions.get(session_code)
+    return user_id
+
+
+def change_name(product_id, new_name, user_id):
+    maybe_existing_product_id = get_product_id_by_name(new_name, user_id)
     if maybe_existing_product_id:
-        replace_product_in_magazyn(product_id, maybe_existing_product_id)
+        replace_product_in_store_positions(product_id, maybe_existing_product_id, user_id)
     else:
-        change_product_name(product_id, new_name)
+        change_product_name(product_id, new_name, user_id)
 
     return "Product name changed"
 
 
 def create_tables():
-    connection = open_conection()
+    connection = open_connection()
     cursor = connection.cursor()
     tables = (
         """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE) """,
-        """ CREATE TABLE magazyn (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, 
+        """ CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, 
         CONSTRAINT fk_m FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
         """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
         CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
@@ -193,7 +298,19 @@ def create_tables():
 
 @app.route("/products/", methods=["GET"])
 def get_product():
-    return get_products_from_database()
+    session_code = request.headers.get("Authorization")
+    user_id = active_sessions.get(session_code)[0]
+    current_time = datetime.now()
+    if user_id and current_time < active_sessions.get(session_code)[1]:
+        return get_products_from_database(user_id)
+    # return redirect("http://localhost:3000?session_code=unlogged")
+    return (jsonify({"login_status": "unlogged"}))
+
+    # user_id = session[session_code]
+    # print(user_id)
+    # print("print", session.get(session_code))
+    # return get_products_from_database(user_id)
+    # return redirect("/code/", 302)
 
 
 @app.route("/products/", methods=["POST"])
@@ -201,105 +318,209 @@ def create_product():
     data = request.json
     name = data.get('name')
     barcode = data.get("barcode")
+    session_code = data.get("session_code")
+    user_id = active_sessions.get(session_code)[0]
+    current_time = datetime.now()
 
-    if barcode and name:
-        return add_product_with_barcode_and_name(barcode, name)
+    if user_id and current_time < active_sessions.get(session_code)[1]:
+        if barcode and name:
+            return add_product_with_barcode_and_name(barcode, name, user_id)
 
-    elif barcode:
-        return add_product_with_barcode(barcode)
+        elif barcode:
+            return add_product_with_barcode(barcode, user_id)
 
-    elif name:
-        return add_product_with_name(name)
+        elif name:
+            return add_product_with_name(name, user_id)
 
-    return "Name or barcode must be specified", 400
+        return "Name or barcode must be specified", 400
+
+    return (jsonify({"login_status": "unlogged"}))
 
 
-def add_product_with_name(name):
-    existing_product_id = get_product_id_by_name(name)
+def add_product_with_name(name, user_id):
+    existing_product_id = get_product_id_by_name(name, user_id)
     try:
         if existing_product_id:
             product_id = existing_product_id
         else:
-            product_id = insert_product_with_name(name)
+            product_id = insert_product_with_name(name, user_id)
 
-        insert_product_to_magazyn(product_id, 1)
+        insert_product_to_store_positions(product_id, 1, user_id)
     except ProductAlreadyExists:
         return name + " already exists", 409
     return "Product added to database", 201
 
 
-def add_product_with_barcode_and_name(barcode, name):
-    existing_product_id = get_product_id_by_name(name)
+def add_product_with_barcode_and_name(barcode, name, user_id):
+    existing_product_id = get_product_id_by_name(name, user_id)
     if existing_product_id:
         product_id = existing_product_id
     else:
-        product_id = insert_product_with_name(name)
+        product_id = insert_product_with_name(name, user_id)
 
     insert_barcode(barcode, product_id)  # what if barcode already exists?
-    add_product_to_magazyn(product_id)
+    add_product_to_store_positions(product_id, user_id)
     return "Product added to database", 201
 
 
-def add_product_to_magazyn(product_id):
+def add_product_to_store_positions(product_id, user_id):
     try:
-        insert_product_to_magazyn(product_id, 1)
+        insert_product_to_store_positions(product_id, 1, user_id)
     except ProductAlreadyExists:
-        increase_product_quantity_in_magazyn(product_id, 1)
+        increase_product_quantity_in_store_positions(product_id, 1, user_id)
 
 
-def add_product_with_barcode(barcode):
-    existing_product_id = get_product_id_for_barcode(barcode)
+def add_product_with_barcode(barcode, user_id):
+    existing_product_id = get_product_id_for_barcode(barcode, user_id)
     if not existing_product_id:
         return "Barcode not found and name not given", 404
-    add_product_to_magazyn(existing_product_id)
+    add_product_to_store_positions(existing_product_id, user_id)
     return "Product added to database", 201
 
 
 @app.route("/products/<id>", methods=["DELETE"])
 def delete_product(id):
+    session_code = request.json.get("session_code")
+    user_id = active_sessions.get(session_code)[0]
+    current_time = datetime.now()
     product_id = id
-    if product_id is None:
-        return "422", 422
-    try:
-        delete_product_from_magazyn(product_id)
-    except Error:
-        return "500", 500
-    return "Product deleted from magazyn", 200
+    if user_id and current_time < active_sessions.get(session_code)[1]:
+        if product_id is None:
+            return "422", 422
+        try:
+            delete_product_from_store_positions(product_id, user_id)
+        except Error:
+            return "500", 500
+        return "Product deleted from store_positions", 200
+    return jsonify({"login_status": "unlogged"})
 
 
 @app.route("/products/<id>", methods=["PUT", "PATCH"])
 def update_product(id):
     request_data = request.json
+    session_code = request_data.get("session_code")
+    user_id = active_sessions.get(session_code)[0]
+    current_time = datetime.now()
     product_id = id
-    if product_id is None:
-        return "422", 422
-    try:
-        if request.method == "PUT":
-            quantity = request_data.get('quantity')
-            if quantity is None:
-                return "422", 422
-            result = increase_product_quantity_in_magazyn(product_id, quantity)
-        if request.method == "PATCH":
-            new_name = request_data.get('new_name')
-            if new_name is None:
-                return "422", 422
-            result = change_name(product_id, new_name)
-    except ProductAlreadyExists:
-        return new_name + " already exists", 409
-    except Error:
-        return "500", 500
+    if user_id and current_time < active_sessions.get(session_code)[1]:
+        if product_id is None:
+            return "422", 422
+        try:
+            if request.method == "PUT":
+                quantity = request_data.get('quantity')
+                if quantity is None:
+                    return "422", 422
+                result = increase_product_quantity_in_store_positions(product_id, quantity, user_id)
+            if request.method == "PATCH":
+                new_name = request_data.get('new_name')
+                if new_name is None:
+                    return "422", 422
+                result = change_name(product_id, new_name, user_id)
+        except ProductAlreadyExists:
+            return new_name + " already exists", 409
+        except Error:
+            return "500", 500
 
-    return result, 201
+        return result, 201
+    return (jsonify({"login_status": "unlogged"}))
 
+
+@app.route("/code/", methods=["GET"])
+def code():
+    google_provider_cfg = get_google_provider_cfg()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri=request.base_url + "callback",
+        scope=["openid", "email", "profile"],
+    )
+    print("request uri fro login", request_uri)
+
+    # response = jsonify({"url": request_uri})
+    # response.headers.set('Authorization', "ala")
+    return jsonify({"url": request_uri, "key": "ala"})
+    # return response
+
+
+@app.route("/code/callback")
+def callback():
+    code33 = request.args.get("code")
+    #code33=request.headers.get("Authorization")
+    get_token(code33)
+    user_account_number = get_user_info()
+    print("user account", user_account_number)
+    if user_account_number != "denied":
+        print("LOGGED")
+        user_id = get_user_from_users(user_account_number)
+        if not user_id:
+            user_id = insert_user_to_users(user_account_number)
+        session_code = uuid.uuid4().__str__()
+        # print("my sesion code", session_code)
+        # app.permanent_session_lifetime = timedelta(minutes=5)
+        # session.permanent = True
+        # app.secret_key = "ala"
+        # session[session_code] = "ala"
+        # if session_code in session:
+        # print("session code from sesion", session.get(session_code))
+        current_time = datetime.now()
+        session_duration = timedelta(minutes=1)
+        active_sessions.update({session_code: [user_id, current_time + session_duration]})
+        # print(active_sessions)
+        return redirect('http://localhost:3000?session_code=' + session_code)
+
+"""
+
+@app.route("/login")
+def login():
+    google_provider_cfg = get_google_provider_cfg()
+    print(google_provider_cfg)
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+
+    # Use library to construct the request for Google login and provide
+    # scopes that let you retrieve user's profile from Google
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri=request.base_url + "/callback",
+        scope=["openid", "email", "profile"],
+    )
+    print("request uri fro login", request_uri)
+    # return redirect(request_uri)
+
+    # response = redirect(request_uri)
+
+    redir = redirect(request_uri)
+    redir.headers['headers'] = "ala"
+    return redir
+
+
+
+@app.route("/login/callback")
+def callback():
+     #Get authorization code Google sent back to you
+    print("request from callback", request)
+    code33 = request.args.get("code")
+    #code33=request.headers.get("Authorization")
+    print("code from callbacl:", code33)
+    get_token(code33)
+
+    user_id = get_user_info()
+    if user_id !="denied":
+        print("LOGGED")
+        temporary_code = uuid.uuid4().__str__()
+        active_sessions.update({temporary_code: user_id})
+        print(active_sessions)
+        return redirect('http://localhost:3000?temporary_id='+temporary_code)
+    #return "ok"
+"""
 
 # the http server is run manually only during local development
 on_local_environment = os.getenv('FLY_APP_NAME') is None
 print('on_local_env:', on_local_environment)
 if on_local_environment:
-    # print('before create tables')
-    # create_tables()
-    app.run(host="0.0.0.0", port=int("8080"), debug=False)
+    if not check_if_database_is_filled('public'):
+        create_tables()
+    app.run(debug=False, ssl_context="adhoc")
 
 else:
-    print('before create tables')
-    create_tables()
+    if not check_if_database_is_filled(table_schema='public'):
+        create_tables()

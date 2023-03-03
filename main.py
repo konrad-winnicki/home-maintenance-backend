@@ -11,7 +11,6 @@ from flask_cors import CORS
 import uuid
 import psycopg2
 from psycopg2 import OperationalError, errorcodes, extras
-from psycopg2.errors import UniqueViolation
 from decouple import config
 
 from flask_login import (
@@ -132,6 +131,24 @@ def insert_product_to_store_positions(productId, quantity, user_id):
     execute_sql_query(query_sql, (productId, quantity, user_id))
 
 
+def insert_product_to_shopping_list(productId, name, quantity, user_id):
+    checkbox = False
+    query_sql = "INSERT INTO shopping_list VALUES (%s, %s, %s, %s, %s)"
+    execute_sql_query(query_sql, (productId, name, quantity, checkbox, user_id))
+
+
+def add_finished_products_to_shopping_list(product_list, user_id):
+    for item in product_list:
+        product_id = item.get('product_id')
+        quantity = item.get('quantity')
+        name = item.get('name')
+        try:
+            insert_product_to_shopping_list(product_id, name, quantity, user_id)
+        except ProductAlreadyExists:
+            continue
+    return "Products added to shopping list", 200
+
+
 def insert_user_to_users(user_account_number):
     user_id = generate_unique_id()
     query_sql = "INSERT INTO users VALUES (%s, %s)"
@@ -168,7 +185,7 @@ def execute_sql_query(query_sql, query_values):
         cursor.execute(query_sql, query_values)
         connection.commit()
         print("Product inserted successfully")
-    except UniqueViolation:
+    except psycopg2.errors.UniqueViolation:
         raise ProductAlreadyExists
     except Error as err:
         print(err)
@@ -186,6 +203,25 @@ def get_products_from_database(user_id):
         result = []
         for row in cursor.fetchall():
             result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
+        return result
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    finally:
+        close_connection(connection, cursor)
+
+
+def get_products_from_shoping_list(user_id):
+    connection = open_connection()
+    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    query_sql = 'select product_id, name, quantity, checkout from shopping_list where user_id=%s order by name'
+
+    try:
+        cursor.execute(query_sql, (user_id,))
+        result = []
+
+        for row in cursor.fetchall():
+            result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"],
+                           "checkout": row["checkout"]})
         return result
     except Error as e:
         print(f"The error '{e}' occurred")
@@ -217,6 +253,23 @@ def get_product_id_by_name(name, user_id):
     return fetch_result
 
 
+def check_if_product_id_in_products(product_id, user_id):
+    query_sql = "select * from products where product_id=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, (product_id, user_id,))
+    if fetch_result:
+        return fetch_result.get("product_id")
+    return fetch_result
+
+
+#######
+def get_product_id_by_name_from_shoping_list(name, user_id):
+    query_sql = "select * from shopping_list where name=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, (name, user_id,))
+    if fetch_result:
+        return fetch_result.get("product_id")
+    return fetch_result
+
+
 def execute_fetch(query_sql, searched_value):
     connection = open_connection()
     cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -235,6 +288,11 @@ def delete_product_from_store_positions(product_id, user_id):
     execute_sql_query(query_sql, (product_id, user_id,))
 
 
+def delete_product_from_shopping_list(product_id, user_id):
+    query_sql = "DELETE FROM shopping_list WHERE product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (product_id, user_id,))
+
+
 def increase_product_quantity_in_store_positions(product_id, quantity, user_id):
     query_sql = "update store_positions SET quantity=quantity+%s where product_id=%s and user_id=%s"
     execute_sql_query(query_sql, (quantity, product_id, user_id,))
@@ -244,6 +302,30 @@ def increase_product_quantity_in_store_positions(product_id, quantity, user_id):
 def change_product_name(product_id, name, user_id):
     query_sql = "update products SET name=%s where product_id=%s and user_id=%s"
     execute_sql_query(query_sql, (name, product_id, user_id,))
+    return "Product name changed in database"
+
+
+def change_quantity_in_store(product_id, quantity, user_id):
+    query_sql = "update store_positions SET quantity=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (quantity, product_id, user_id,))
+    return "Product quantity changed in database"
+
+
+def change_quantity_in_shopping_list(product_id, quantity, user_id):
+    query_sql = "update shopping_list SET quantity=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (quantity, product_id, user_id,))
+    return "Product quantity changed in database"
+
+
+def change_product_name_in_shopping_list(product_id, name, user_id):
+    query_sql = "update shopping_list SET name=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (name, product_id, user_id,))
+    return "Product name changed in database"
+
+
+def change_checkbox_status_in_database(product_id, checkbox_status, user_id):
+    query_sql = "update shopping_list SET checkout=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (checkbox_status, product_id, user_id,))
     return "Product name changed in database"
 
 
@@ -269,8 +351,22 @@ def change_name(product_id, new_name, user_id):
         replace_product_in_store_positions(product_id, maybe_existing_product_id, user_id)
     else:
         change_product_name(product_id, new_name, user_id)
-
     return "Product name changed"
+
+
+def change_name_in_shopping_list(product_id, new_name, user_id):
+    maybe_existing_product_id = get_product_id_by_name(new_name, user_id)
+    if maybe_existing_product_id:
+        # replace_product_in_store_positions(product_id, maybe_existing_product_id, user_id)
+        print("costam")
+    else:
+        change_product_name_in_shopping_list(product_id, new_name, user_id)
+    return "Product name changed"
+
+
+def change_checkbox_status(product_id, checkbox_status, user_id):
+    change_checkbox_status_in_database(product_id, checkbox_status, user_id)
+    return "Checkbox status changed"
 
 
 def create_tables():
@@ -283,6 +379,8 @@ def create_tables():
         """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
         CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
 
+        """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
+                CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
     )
     try:
         for table in tables:
@@ -299,10 +397,15 @@ def create_tables():
 @app.route("/products/", methods=["GET"])
 def get_product():
     session_code = request.headers.get("Authorization")
+    component = request.headers.get("Active_component")
+    print(component)
     user_id = active_sessions.get(session_code)[0]
     current_time = datetime.now()
     if user_id and current_time < active_sessions.get(session_code)[1]:
-        return get_products_from_database(user_id)
+        if component == "Application":
+            return get_products_from_database(user_id)
+        if component == "Form":
+            return get_products_from_shoping_list(user_id)
     # return redirect("http://localhost:3000?session_code=unlogged")
     return (jsonify({"login_status": "unlogged"}))
 
@@ -316,13 +419,21 @@ def get_product():
 @app.route("/products/", methods=["POST"])
 def create_product():
     data = request.json
+    component = request.headers.get("Active_component")
+    product_list = data.get("product_list")
     name = data.get('name')
+    quantity = data.get('quantity')
     barcode = data.get("barcode")
     session_code = data.get("session_code")
     user_id = active_sessions.get(session_code)[0]
     current_time = datetime.now()
 
     if user_id and current_time < active_sessions.get(session_code)[1]:
+        if component == "adding_finished_products":
+            return add_finished_products_to_shopping_list(product_list, user_id)
+        if component == "shopping_list_export":
+            return add_product_from_shopping_list(product_list, user_id)
+
         if barcode and name:
             return add_product_with_barcode_and_name(barcode, name, user_id)
 
@@ -330,22 +441,45 @@ def create_product():
             return add_product_with_barcode(barcode, user_id)
 
         elif name:
-            return add_product_with_name(name, user_id)
+            return add_product_with_name(component, name, quantity, user_id)
 
         return "Name or barcode must be specified", 400
 
     return (jsonify({"login_status": "unlogged"}))
 
 
-def add_product_with_name(name, user_id):
-    existing_product_id = get_product_id_by_name(name, user_id)
-    try:
-        if existing_product_id:
-            product_id = existing_product_id
-        else:
-            product_id = insert_product_with_name(name, user_id)
+def add_product_from_shopping_list(product_list, user_id):
+    for item in product_list:
+        product_id = item.get('product_id')
+        quantity = item.get('quantity')
+        name = item.get('name')
+        # product_in_products = check_if_product_id_in_products(product_id, user_id)
+        # print("product in products", product_in_products)
+        if check_if_product_id_in_products(product_id, user_id) is None:
+            insert_product(product_id, name, user_id)
+        add_product_to_store_positions(product_id, quantity, user_id)
+        delete_product_from_shopping_list(product_id, user_id)
+    return "Products added to store", 200
 
-        insert_product_to_store_positions(product_id, 1, user_id)
+
+def add_product_with_name(component, name, quantity, user_id):
+    existing_product_id = get_product_id_by_name(name, user_id)
+
+    try:
+        if component == "Application":
+            if existing_product_id:
+                product_id = existing_product_id
+            else:
+                product_id = insert_product_with_name(name, user_id)
+
+            insert_product_to_store_positions(product_id, quantity, user_id)
+        if component == "Form":
+            if existing_product_id:
+                product_id = existing_product_id
+            else:
+                product_id = generate_unique_id()
+            insert_product_to_shopping_list(product_id, name, quantity, user_id)
+
     except ProductAlreadyExists:
         return name + " already exists", 409
     return "Product added to database", 201
@@ -359,27 +493,29 @@ def add_product_with_barcode_and_name(barcode, name, user_id):
         product_id = insert_product_with_name(name, user_id)
 
     insert_barcode(barcode, product_id)  # what if barcode already exists?
-    add_product_to_store_positions(product_id, user_id)
+    add_product_to_store_positions(product_id, 1, user_id)
     return "Product added to database", 201
 
 
-def add_product_to_store_positions(product_id, user_id):
+def add_product_to_store_positions(product_id, quantity, user_id):
     try:
-        insert_product_to_store_positions(product_id, 1, user_id)
+        insert_product_to_store_positions(product_id, quantity, user_id)
     except ProductAlreadyExists:
-        increase_product_quantity_in_store_positions(product_id, 1, user_id)
+        increase_product_quantity_in_store_positions(product_id, quantity, user_id)
 
 
 def add_product_with_barcode(barcode, user_id):
     existing_product_id = get_product_id_for_barcode(barcode, user_id)
     if not existing_product_id:
         return "Barcode not found and name not given", 404
-    add_product_to_store_positions(existing_product_id, user_id)
+    add_product_to_store_positions(existing_product_id, 1, user_id)
     return "Product added to database", 201
 
 
 @app.route("/products/<id>", methods=["DELETE"])
 def delete_product(id):
+    component = request.headers.get("Active_component")
+    print("cp del", component)
     session_code = request.json.get("session_code")
     user_id = active_sessions.get(session_code)[0]
     current_time = datetime.now()
@@ -388,7 +524,10 @@ def delete_product(id):
         if product_id is None:
             return "422", 422
         try:
-            delete_product_from_store_positions(product_id, user_id)
+            if component == "Application":
+                delete_product_from_store_positions(product_id, user_id)
+            if component == "Form":
+                delete_product_from_shopping_list(product_id, user_id)
         except Error:
             return "500", 500
         return "Product deleted from store_positions", 200
@@ -398,7 +537,11 @@ def delete_product(id):
 @app.route("/products/<id>", methods=["PUT", "PATCH"])
 def update_product(id):
     request_data = request.json
+    component = request.headers.get("Active_component")
     session_code = request_data.get("session_code")
+    check_box_status = request_data.get("checkbox_status")
+    quantity = request_data.get('quantity')
+    new_name = request_data.get('new_name')
     user_id = active_sessions.get(session_code)[0]
     current_time = datetime.now()
     product_id = id
@@ -406,16 +549,35 @@ def update_product(id):
         if product_id is None:
             return "422", 422
         try:
-            if request.method == "PUT":
-                quantity = request_data.get('quantity')
-                if quantity is None:
-                    return "422", 422
-                result = increase_product_quantity_in_store_positions(product_id, quantity, user_id)
-            if request.method == "PATCH":
-                new_name = request_data.get('new_name')
-                if new_name is None:
-                    return "422", 422
-                result = change_name(product_id, new_name, user_id)
+            if component == "Application":
+                if quantity is not None:
+                    if quantity is None:
+                        return "422", 422
+                    if quantity == 1 or quantity == -1:
+                        result = increase_product_quantity_in_store_positions(product_id, quantity, user_id)
+                    else:
+                        result = change_quantity_in_store(product_id, quantity, user_id)
+                if new_name is not None:
+                    # new_name = request_data.get('new_name')
+                    if new_name is None:
+                        return "422", 422
+                    result = change_name(product_id, new_name, user_id)
+            if component == "Form":
+                if quantity is not None:
+                    if quantity is None:
+                        return "422", 422
+
+                    result = change_quantity_in_shopping_list(product_id, quantity, user_id)
+                if new_name is not None:
+                    # new_name = request_data.get('new_name')
+                    if new_name is None:
+                        return "422", 422
+                    result = change_name_in_shopping_list(product_id, new_name, user_id)
+
+                if check_box_status is not None:
+                    print("componnet z checkbox", component)
+                    result = change_checkbox_status(product_id, check_box_status, user_id)
+
         except ProductAlreadyExists:
             return new_name + " already exists", 409
         except Error:
@@ -445,7 +607,7 @@ def code():
 @app.route("/code/callback")
 def callback():
     code33 = request.args.get("code")
-    #code33=request.headers.get("Authorization")
+    # code33=request.headers.get("Authorization")
     get_token(code33)
     user_account_number = get_user_info()
     print("user account", user_account_number)
@@ -463,12 +625,11 @@ def callback():
         # if session_code in session:
         # print("session code from sesion", session.get(session_code))
         current_time = datetime.now()
-        session_duration = timedelta(minutes=1)
+        session_duration = timedelta(minutes=60)
         active_sessions.update({session_code: [user_id, current_time + session_duration]})
         # print(active_sessions)
         return redirect('http://localhost:3000?session_code=' + session_code)
 
-"""
 
 @app.route("/login")
 def login():
@@ -493,7 +654,7 @@ def login():
     return redir
 
 
-
+"""
 @app.route("/login/callback")
 def callback():
      #Get authorization code Google sent back to you

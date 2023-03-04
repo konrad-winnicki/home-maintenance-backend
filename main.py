@@ -22,7 +22,7 @@ from flask_login import (
 )
 from oauthlib.oauth2 import WebApplicationClient
 import requests
-from flask_session import Session
+# from flask_session import Session
 
 active_sessions = {}
 
@@ -39,13 +39,10 @@ CORS(app)
 
 # OAUTH.2
 
-client = WebApplicationClient(config('GOOGLE_CLIENT_ID'))
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
-GOOGLE_DISCOVERY_URL = (
-    "https://accounts.google.com/.well-known/openid-configuration"
-)
-
+GOOGLE_DISCOVERY_URL = ("https://accounts.google.com/.well-known/openid-configuration")
+client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 # OAUTH.2
 

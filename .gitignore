@@ -1,5 +1,6 @@
 .idea
 venv
+.venv
 .env
 3tabele.txt
 ostatni.txt

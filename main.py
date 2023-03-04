@@ -1,6 +1,8 @@
 import os
 import json
 import datetime
+
+from psycopg.rows import dict_row
 from flask import Flask, redirect, request, url_for, jsonify, render_template, session
 
 from flask_login import LoginManager
@@ -9,8 +11,8 @@ from datetime import datetime
 from flask_cors import CORS
 
 import uuid
-import psycopg2
-from psycopg2 import OperationalError, errorcodes, extras
+import psycopg
+from psycopg import OperationalError
 from decouple import config
 
 from flask_login import (
@@ -22,6 +24,9 @@ from flask_login import (
 )
 from oauthlib.oauth2 import WebApplicationClient
 import requests
+
+from db import pool
+
 # from flask_session import Session
 
 active_sessions = {}
@@ -100,29 +105,6 @@ def get_user_info():
         return "denied"
 
 
-def open_connection():
-    connection = None
-    try:
-        connection = psycopg2.connect(
-            host="postgres.c3gdxucwufp2.eu-west-2.rds.amazonaws.com",
-            user="postgres",
-            password=config('POSTGRES_PASSWORD'),
-            port="5432",
-            database="postgres"
-        )
-        print("Connection to PostgresSQL DB successful")
-    except OperationalError as e:
-        print(f"The error '{e}' occurred")
-    return connection
-
-
-def close_connection(connection, cursor):
-    if connection is not None:
-        cursor.close()
-        connection.close()
-        print("Postgres SQL connection is closed")
-
-
 def insert_product_to_store_positions(productId, quantity, user_id):
     query_sql = "INSERT INTO store_positions VALUES (%s, %s, %s)"
     execute_sql_query(query_sql, (productId, quantity, user_id))
@@ -176,54 +158,47 @@ def check_if_database_is_filled(table_schema):
 
 
 def execute_sql_query(query_sql, query_values):
-    connection = open_connection()
-    cursor = connection.cursor()
-    try:
-        cursor.execute(query_sql, query_values)
-        connection.commit()
-        print("Product inserted successfully")
-    except psycopg2.errors.UniqueViolation:
-        raise ProductAlreadyExists
-    except Error as err:
-        print(err)
-    finally:
-        close_connection(connection, cursor)
-    return "Product added to database"
+    with pool.connection() as connection:
+        try:
+            connection.execute(query_sql, query_values)
+            print("Product inserted successfully")
+        except psycopg.errors.UniqueViolation:
+            raise ProductAlreadyExists
+        except Error as err:
+            print(err)
+        return "Product added to database"
 
 
 def get_products_from_database(user_id):
-    connection = open_connection()
-    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    print(pool.get_stats()) # TODO: remove
     query_sql = 'select store_positions.product_id, name, quantity from store_positions join products on store_positions.product_id = products.product_id where store_positions.user_id=%s order by products.name'
-    try:
-        cursor.execute(query_sql, (user_id,))
-        result = []
-        for row in cursor.fetchall():
-            result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
-        return result
-    except Error as e:
-        print(f"The error '{e}' occurred")
-    finally:
-        close_connection(connection, cursor)
+    with pool.connection() as connection:
+        cursor = connection.cursor(row_factory=dict_row)
+        try:
+            cursor.execute(query_sql, (user_id,))
+            result = []
+            for row in cursor.fetchall():
+                result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
+            return result
+        except Error as e:
+            print(f"The error '{e}' occurred")
 
 
 def get_products_from_shoping_list(user_id):
-    connection = open_connection()
-    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     query_sql = 'select product_id, name, quantity, checkout from shopping_list where user_id=%s order by name'
+    with pool.connection() as connection:
+        cursor = connection.cursor(row_factory=dict_row)
 
-    try:
-        cursor.execute(query_sql, (user_id,))
-        result = []
+        try:
+            cursor.execute(query_sql, (user_id,))
+            result = []
 
-        for row in cursor.fetchall():
-            result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"],
-                           "checkout": row["checkout"]})
-        return result
-    except Error as e:
-        print(f"The error '{e}' occurred")
-    finally:
-        close_connection(connection, cursor)
+            for row in cursor.fetchall():
+                result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"],
+                               "checkout": row["checkout"]})
+            return result
+        except Error as e:
+            print(f"The error '{e}' occurred")
 
 
 def get_user_from_users(user_account_number):
@@ -268,16 +243,14 @@ def get_product_id_by_name_from_shoping_list(name, user_id):
 
 
 def execute_fetch(query_sql, searched_value):
-    connection = open_connection()
-    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        cursor.execute(query_sql, searched_value)
-        query_result = cursor.fetchone()
-    except Error as e:
-        print(f"The error '{e}' occurred")
-    finally:
-        close_connection(connection, cursor)
-    return query_result
+    with pool.connection() as connection:
+        cursor = connection.cursor(row_factory=dict_row)
+        try:
+            cursor.execute(query_sql, searched_value)
+            query_result = cursor.fetchone()
+        except Error as e:
+            print(f"The error '{e}' occurred")
+        return query_result
 
 
 def delete_product_from_store_positions(product_id, user_id):
@@ -367,8 +340,6 @@ def change_checkbox_status(product_id, checkbox_status, user_id):
 
 
 def create_tables():
-    connection = open_connection()
-    cursor = connection.cursor()
     tables = (
         """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE) """,
         """ CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, 
@@ -379,16 +350,14 @@ def create_tables():
         """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
                 CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
     )
-    try:
-        for table in tables:
-            print("creating table: ", table)
-            cursor.execute(table)
-            connection.commit()
-        print("Tables established successfully")
-    except OperationalError as e:
-        print(f"The error '{e}' occurred")
-    finally:
-        close_connection(connection, cursor)
+    with pool.connection() as connection:
+        try:
+            for table in tables:
+                print("creating table: ", table)
+                connection.execute(table)
+            print("Tables established successfully")
+        except OperationalError as e:
+            print(f"The error '{e}' occurred")
 
 
 @app.route("/products/", methods=["GET"])

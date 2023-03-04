@@ -49,6 +49,7 @@ GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = ("https://accounts.google.com/.well-known/openid-configuration")
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
+
 # OAUTH.2
 
 
@@ -170,7 +171,7 @@ def execute_sql_query(query_sql, query_values):
 
 
 def get_products_from_database(user_id):
-    print(pool.get_stats()) # TODO: remove
+    print(pool.get_stats())  # TODO: remove
     query_sql = 'select store_positions.product_id, name, quantity from store_positions join products on store_positions.product_id = products.product_id where store_positions.user_id=%s order by products.name'
     with pool.connection() as connection:
         cursor = connection.cursor(row_factory=dict_row)
@@ -646,7 +647,7 @@ print('on_local_env:', on_local_environment)
 if on_local_environment:
     if not check_if_database_is_filled('public'):
         create_tables()
-    app.run(debug=False, ssl_context="adhoc")
+    app.run(debug=False, ssl_context=('cert/cert.pem', 'cert/priv_key.pem'))
 
 else:
     if not check_if_database_is_filled(table_schema='public'):

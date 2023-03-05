@@ -46,7 +46,7 @@ CORS(app)
 
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
-GOOGLE_DISCOVERY_URL = ("https://accounts.google.com/.well-known/openid-configuration")
+GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
@@ -77,14 +77,16 @@ def get_token(code):
     # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=http://localhost:5000
     token_url, headers, body = client.prepare_token_request(  # tu leci
         token_endpoint,
-        # authorization_response=request.url, #required - from it it mines code etc.
-        redirect_url=request.base_url,
-        code=code
+        authorization_response=request.url, #required - from it it mines code etc.
+        redirect_url=request.args.get("redirect_uri")
+        # code=code
     )
+    # body = client.prepare_request_body(code=code)
+    # print("Prepared body: ", body)
 
-    print("token url z get token", token_url)
-    print("headers z get token ", headers)
-    print("body get token", body)
+    print("GetTokenRequest Url:", token_url)
+    print("GetTokenRequest Headers:", headers)
+    print("GetTokenRequest Body:", body)
     token_response = requests.post(
         token_url,
         headers=headers,
@@ -554,23 +556,6 @@ def update_product(id):
     return (jsonify({"login_status": "unlogged"}))
 
 
-@app.route("/code/", methods=["GET"])
-def code():
-    google_provider_cfg = get_google_provider_cfg()
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=request.base_url + "callback",
-        scope=["openid", "email", "profile"],
-    )
-    print("request uri fro login", request_uri)
-
-    # response = jsonify({"url": request_uri})
-    # response.headers.set('Authorization', "ala")
-    return jsonify({"url": request_uri, "key": "ala"})
-    # return response
-
-
 @app.route("/code/callback")
 def callback():
     code33 = request.args.get("code")
@@ -595,7 +580,8 @@ def callback():
         session_duration = timedelta(minutes=60)
         active_sessions.update({session_code: [user_id, current_time + session_duration]})
         # print(active_sessions)
-        return redirect('http://localhost:3000?session_code=' + session_code)
+        # return redirect('http://localhost:3000?session_code=' + session_code)
+        return jsonify({"session_code": session_code})
 
 
 @app.route("/login")

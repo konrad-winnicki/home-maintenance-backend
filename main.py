@@ -128,7 +128,7 @@ def add_finished_products_to_shopping_list(product_list, user_id):
             insert_product_to_shopping_list(product_id, name, quantity, user_id)
         except ProductAlreadyExists:
             continue
-    return "Products added to shopping list", 200
+    return "Products added to shopping list"
 
 
 def insert_user_to_users(user_account_number):
@@ -227,6 +227,13 @@ def get_product_id_by_name(name, user_id):
         return fetch_result.get("product_id")
     return fetch_result
 
+def get_quantity_by_id(product_id, user_id):
+    query_sql = "select * from store_positions where product_id=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, (product_id, user_id,))
+    if fetch_result:
+        return fetch_result.get("quantity")
+    return fetch_result
+
 
 def check_if_product_id_in_products(product_id, user_id):
     query_sql = "select * from products where product_id=%s and user_id=%s"
@@ -267,7 +274,7 @@ def delete_product_from_shopping_list(product_id, user_id):
 
 
 def increase_product_quantity_in_store_positions(product_id, quantity, user_id):
-    query_sql = "update store_positions SET quantity=quantity+%s where product_id=%s and user_id=%s"
+    query_sql = "update store_positions SET quantity=%s where product_id=%s and user_id=%s"
     execute_sql_query(query_sql, (quantity, product_id, user_id,))
     return "Product quantity changed"
 
@@ -307,6 +314,10 @@ def replace_product_in_store_positions(product_id, new_id, user_id):
     execute_sql_query(query_sql, (new_id, product_id, user_id,))
     return "Product name changed in database"
 
+def replace_product_in_shopping_list(product_id, new_id, user_id):
+    query_sql = "update shopping_list SET product_id=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, (new_id, product_id, user_id,))
+    return "Product name changed in database"
 
 def generate_unique_id():
     return uuid.uuid4().__str__()
@@ -330,8 +341,7 @@ def change_name(product_id, new_name, user_id):
 def change_name_in_shopping_list(product_id, new_name, user_id):
     maybe_existing_product_id = get_product_id_by_name(new_name, user_id)
     if maybe_existing_product_id:
-        # replace_product_in_store_positions(product_id, maybe_existing_product_id, user_id)
-        print("costam")
+        replace_product_in_store_positions(product_id, maybe_existing_product_id, user_id)
     else:
         change_product_name_in_shopping_list(product_id, new_name, user_id)
     return "Product name changed"
@@ -363,46 +373,43 @@ def create_tables():
             print(f"The error '{e}' occurred")
 
 
-@app.route("/products/", methods=["GET"])
-def get_product():
-    session_code = request.headers.get("Authorization")
-    component = request.headers.get("Active_component")
-    print(component)
-    user_id = active_sessions.get(session_code)[0]
+def authorization_verification(session_code):
     current_time = datetime.now()
-    if user_id and current_time < active_sessions.get(session_code)[1]:
-        if component == "Application":
-            return get_products_from_database(user_id)
-        if component == "Form":
-            return get_products_from_shoping_list(user_id)
+    user_id = active_sessions.get(session_code)[0]
+    if current_time < active_sessions.get(session_code)[1]:
+        return user_id
+    return None
+
+@app.route("/store/products/", methods=["GET"])
+def get_product_from_store():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    if user_id:
+        return get_products_from_database(user_id)
     # return redirect("http://localhost:3000?session_code=unlogged")
-    return (jsonify({"login_status": "unlogged"}))
-
-    # user_id = session[session_code]
-    # print(user_id)
-    # print("print", session.get(session_code))
-    # return get_products_from_database(user_id)
-    # return redirect("/code/", 302)
+    return jsonify({"response": "non-authorized"}), 401
 
 
-@app.route("/products/", methods=["POST"])
-def create_product():
+@app.route("/cart/items/", methods=["GET"])
+def get_product_from_shopping_list():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    if user_id:
+        return get_products_from_shoping_list(user_id)
+    return jsonify({"response": "non-authorized"}), 401
+
+
+
+@app.route("/store/products/", methods=["POST"])
+def create_product_in_store():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
     data = request.json
-    component = request.headers.get("Active_component")
-    product_list = data.get("product_list")
     name = data.get('name')
     quantity = data.get('quantity')
     barcode = data.get("barcode")
-    session_code = data.get("session_code")
-    user_id = active_sessions.get(session_code)[0]
-    current_time = datetime.now()
 
-    if user_id and current_time < active_sessions.get(session_code)[1]:
-        if component == "adding_finished_products":
-            return add_finished_products_to_shopping_list(product_list, user_id)
-        if component == "shopping_list_export":
-            return add_product_from_shopping_list(product_list, user_id)
-
+    if user_id:
         if barcode and name:
             return add_product_with_barcode_and_name(barcode, name, user_id)
 
@@ -410,11 +417,26 @@ def create_product():
             return add_product_with_barcode(barcode, user_id)
 
         elif name:
-            return add_product_with_name(component, name, quantity, user_id)
+            try:
+                response = add_product_with_name_to_store(name, quantity, user_id)
+                return jsonify({"response": response}), 201
+            except ProductAlreadyExists:
+                return jsonify({"response": name + " product already exist"}), 409
 
         return "Name or barcode must be specified", 400
 
-    return (jsonify({"login_status": "unlogged"}))
+    return jsonify({"response": "non-authorized"}), 401
+
+
+@app.route("/store/products/delivery/", methods=["POST"])
+def transfer_shoppings_to_store():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    product_list = request.json
+    if user_id:
+        response = add_product_from_shopping_list(product_list, user_id)
+        return jsonify({"response": response}), 201
+    return jsonify({"response": "non-authorized"}), 401
 
 
 def add_product_from_shopping_list(product_list, user_id):
@@ -422,36 +444,40 @@ def add_product_from_shopping_list(product_list, user_id):
         product_id = item.get('product_id')
         quantity = item.get('quantity')
         name = item.get('name')
-        # product_in_products = check_if_product_id_in_products(product_id, user_id)
-        # print("product in products", product_in_products)
         if check_if_product_id_in_products(product_id, user_id) is None:
             insert_product(product_id, name, user_id)
         add_product_to_store_positions(product_id, quantity, user_id)
         delete_product_from_shopping_list(product_id, user_id)
-    return "Products added to store", 200
+    return "Products added to store"
 
 
-def add_product_with_name(component, name, quantity, user_id):
+def add_product_with_name_to_cart(name, quantity, user_id):
     existing_product_id = get_product_id_by_name(name, user_id)
-
     try:
-        if component == "Application":
-            if existing_product_id:
-                product_id = existing_product_id
-            else:
-                product_id = insert_product_with_name(name, user_id)
-
-            insert_product_to_store_positions(product_id, quantity, user_id)
-        if component == "Form":
-            if existing_product_id:
-                product_id = existing_product_id
-            else:
-                product_id = generate_unique_id()
-            insert_product_to_shopping_list(product_id, name, quantity, user_id)
+        if existing_product_id:
+            product_id = existing_product_id
+        else:
+            product_id = generate_unique_id()
+        insert_product_to_shopping_list(product_id, name, quantity, user_id)
 
     except ProductAlreadyExists:
-        return name + " already exists", 409
-    return "Product added to database", 201
+        raise ProductAlreadyExists
+    return "Product added to database"
+
+
+def add_product_with_name_to_store(name, quantity, user_id):
+    existing_product_id = get_product_id_by_name(name, user_id)
+    try:
+        if existing_product_id:
+            product_id = existing_product_id
+        else:
+            product_id = insert_product_with_name(name, user_id)
+
+        insert_product_to_store_positions(product_id, quantity, user_id)
+
+    except ProductAlreadyExists:
+        raise ProductAlreadyExists
+    return "Product added to database"
 
 
 def add_product_with_barcode_and_name(barcode, name, user_id):
@@ -470,7 +496,8 @@ def add_product_to_store_positions(product_id, quantity, user_id):
     try:
         insert_product_to_store_positions(product_id, quantity, user_id)
     except ProductAlreadyExists:
-        increase_product_quantity_in_store_positions(product_id, quantity, user_id)
+        existing_quantity = get_quantity_by_id(product_id, user_id)
+        increase_product_quantity_in_store_positions(product_id, existing_quantity + quantity, user_id)
 
 
 def add_product_with_barcode(barcode, user_id):
@@ -481,78 +508,117 @@ def add_product_with_barcode(barcode, user_id):
     return "Product added to database", 201
 
 
-@app.route("/products/<id>", methods=["DELETE"])
-def delete_product(id):
-    component = request.headers.get("Active_component")
-    print("cp del", component)
-    session_code = request.json.get("session_code")
-    user_id = active_sessions.get(session_code)[0]
-    current_time = datetime.now()
+@app.route("/cart/items/", methods=["POST"])
+def create_item_at_shopping_list():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    data = request.json
+    name = data.get('name')
+    quantity = data.get('quantity')
+    barcode = data.get("barcode")
+    if user_id:
+        if barcode and name:
+            return add_product_with_barcode_and_name(barcode, name, user_id)
+        elif barcode:
+            return add_product_with_barcode(barcode, user_id)
+        elif name:
+            try:
+                response = add_product_with_name_to_cart(name, quantity, user_id)
+                return jsonify({"response": response}), 201
+            except ProductAlreadyExists:
+                return jsonify({"response": name + " product already exist"}), 409
+
+        return "Name or barcode must be specified", 400
+
+    return jsonify({"response": "non-authorized"}), 401
+
+@app.route("/cart/items/shoppinglist", methods=["POST"])
+def transfer_item_from_store_to_shopping_list():
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    product_list = request.json
+    if user_id:
+        response = add_finished_products_to_shopping_list(product_list, user_id)
+        return jsonify({"response": response}), 201
+    return jsonify({"response": "non-authorized"}), 401
+
+
+@app.route("/store/products/<id>", methods=["DELETE"])
+def delete_product_from_store(id):
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
     product_id = id
-    if user_id and current_time < active_sessions.get(session_code)[1]:
+    if user_id:
         if product_id is None:
             return "422", 422
         try:
-            if component == "Application":
-                delete_product_from_store_positions(product_id, user_id)
-            if component == "Form":
-                delete_product_from_shopping_list(product_id, user_id)
+            delete_product_from_store_positions(product_id, user_id)
         except Error:
             return "500", 500
-        return "Product deleted from store_positions", 200
-    return jsonify({"login_status": "unlogged"})
+        return jsonify({"response": "Product deleted from store positions"}), 200
+    jsonify({"response": "non-authorized"}), 401
 
-
-@app.route("/products/<id>", methods=["PUT", "PATCH"])
-def update_product(id):
-    request_data = request.json
-    component = request.headers.get("Active_component")
-    session_code = request_data.get("session_code")
-    check_box_status = request_data.get("checkbox_status")
-    quantity = request_data.get('quantity')
-    new_name = request_data.get('new_name')
-    user_id = active_sessions.get(session_code)[0]
-    current_time = datetime.now()
+@app.route("/cart/items/<id>", methods=["DELETE"])
+def delete_product_from_cart(id):
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
     product_id = id
-    if user_id and current_time < active_sessions.get(session_code)[1]:
+    if user_id:
         if product_id is None:
             return "422", 422
         try:
-            if component == "Application":
-                if quantity is not None:
-                    if quantity is None:
-                        return "422", 422
-                    if quantity == 1 or quantity == -1:
-                        result = increase_product_quantity_in_store_positions(product_id, quantity, user_id)
-                    else:
-                        result = change_quantity_in_store(product_id, quantity, user_id)
-                if new_name is not None:
-                    # new_name = request_data.get('new_name')
-                    if new_name is None:
-                        return "422", 422
-                    result = change_name(product_id, new_name, user_id)
-            if component == "Form":
-                if quantity is not None:
-                    if quantity is None:
-                        return "422", 422
+            delete_product_from_shopping_list(product_id, user_id)
+        except Error:
+            return "500", 500
+        return jsonify({"response": "Product deleted from shopping list"}), 200
+    jsonify({"response": "non-authorized"}), 401
 
-                    result = change_quantity_in_shopping_list(product_id, quantity, user_id)
-                if new_name is not None:
-                    # new_name = request_data.get('new_name')
-                    if new_name is None:
-                        return "422", 422
-                    result = change_name_in_shopping_list(product_id, new_name, user_id)
-
-                if check_box_status is not None:
-                    print("componnet z checkbox", component)
-                    result = change_checkbox_status(product_id, check_box_status, user_id)
+@app.route("/store/products/<id>", methods=["PUT", "PATCH"])
+def update_product_in_store(id):
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    request_data = request.json
+    quantity = request_data.get('quantity')
+    name = request_data.get('name')
+    product_id = id
+    if user_id:
+        if (product_id or name or quantity) is None:
+            return "422", 422
+        try:
+            increase_product_quantity_in_store_positions(product_id, quantity, user_id)
+            change_name(product_id, name, user_id)
+            result = "Product data updated"
 
         except ProductAlreadyExists:
-            return new_name + " already exists", 409
+            return jsonify({"response": name + " product already exist"}), 409
         except Error:
             return "500", 500
 
-        return result, 201
+        return jsonify({"response": result}), 201
+    return (jsonify({"login_status": "unlogged"}))
+
+@app.route("/cart/items/<id>", methods=["PUT", "PATCH"])
+def update_product_in_shopping_list(id):
+    session_code = request.headers.get("Authorization")
+    user_id = authorization_verification(session_code)
+    request_data = request.json
+    check_box_status = request_data.get("checkout")
+    quantity = request_data.get('quantity')
+    name = request_data.get('name')
+    product_id = id
+    if user_id:
+        if (product_id or name or quantity or check_box_status) is None:
+            return "422", 422
+        try:
+            change_quantity_in_shopping_list(product_id, quantity, user_id)
+            change_name_in_shopping_list(product_id, name, user_id)
+            change_checkbox_status(product_id, check_box_status, user_id)
+            result = "Product data updated"
+        except ProductAlreadyExists:
+            return jsonify({"response": name + " product already exist"}), 409
+        except Error:
+            return "500", 500
+        return jsonify({"response": result}), 201
     return (jsonify({"login_status": "unlogged"}))
 
 
@@ -577,7 +643,7 @@ def callback():
         # if session_code in session:
         # print("session code from sesion", session.get(session_code))
         current_time = datetime.now()
-        session_duration = timedelta(minutes=60)
+        session_duration = timedelta(minutes=1)
         active_sessions.update({session_code: [user_id, current_time + session_duration]})
         # print(active_sessions)
         # return redirect('http://localhost:3000?session_code=' + session_code)

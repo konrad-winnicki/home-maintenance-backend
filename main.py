@@ -1,7 +1,7 @@
 import os
 import json
 import datetime
-
+import jwt
 from psycopg.rows import dict_row
 from flask import Flask, redirect, request, url_for, jsonify, render_template, session
 
@@ -45,6 +45,7 @@ CORS(app)
 # OAUTH.2
 
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
+SECRET_KEY = config("SECRET_KEY", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
@@ -77,7 +78,7 @@ def get_token(code):
     # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=http://localhost:5000
     token_url, headers, body = client.prepare_token_request(  # tu leci
         token_endpoint,
-        authorization_response=request.url, #required - from it it mines code etc.
+        authorization_response=request.url.replace("http", "https"),  # required - from it it mines code etc.
         redirect_url=request.args.get("redirect_uri")
         # code=code
     )
@@ -373,12 +374,14 @@ def create_tables():
             print(f"The error '{e}' occurred")
 
 
-def authorization_verification(session_code):
-    current_time = datetime.now()
-    user_id = active_sessions.get(session_code)[0]
-    if current_time < active_sessions.get(session_code)[1]:
+def authorization_verification(token):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithm="HS256")
+        user_id = payload.user_id
         return user_id
-    return None
+    except jwt.ExpiredSignatureError:
+        print("non valid token")
+        return None
 
 @app.route("/store/products/", methods=["GET"])
 def get_product_from_store():
@@ -634,17 +637,12 @@ def callback():
         user_id = get_user_from_users(user_account_number)
         if not user_id:
             user_id = insert_user_to_users(user_account_number)
-        session_code = uuid.uuid4().__str__()
-        # print("my sesion code", session_code)
-        # app.permanent_session_lifetime = timedelta(minutes=5)
-        # session.permanent = True
-        # app.secret_key = "ala"
-        # session[session_code] = "ala"
-        # if session_code in session:
-        # print("session code from sesion", session.get(session_code))
-        current_time = datetime.now()
+        current_time = datetime.now(tz=datetime.timezone.utc)
         session_duration = timedelta(minutes=1)
-        active_sessions.update({session_code: [user_id, current_time + session_duration]})
+        session_code = jwt.encode({"user_id": user_id, "exp": current_time + session_duration}, SECRET_KEY, algorithm="HS256")
+
+
+
         # print(active_sessions)
         # return redirect('http://localhost:3000?session_code=' + session_code)
         return jsonify({"session_code": session_code})

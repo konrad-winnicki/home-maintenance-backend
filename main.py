@@ -6,8 +6,7 @@ from psycopg.rows import dict_row
 from flask import Flask, redirect, request, url_for, jsonify, render_template, session
 
 from flask_login import LoginManager
-from datetime import timedelta
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 
 import uuid
@@ -376,7 +375,7 @@ def create_tables():
 
 def authorization_verification(token):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithm="HS256")
+        payload = jwt.decode(token, SECRET_KEY, algorithms="HS256")
         user_id = payload.user_id
         return user_id
     except jwt.ExpiredSignatureError:
@@ -637,9 +636,9 @@ def callback():
         user_id = get_user_from_users(user_account_number)
         if not user_id:
             user_id = insert_user_to_users(user_account_number)
-        current_time = datetime.now(tz=datetime.timezone.utc)
+        current_time = datetime.now(tz=timezone.utc)
         session_duration = timedelta(minutes=1)
-        session_code = jwt.encode({"user_id": user_id, "exp": current_time + session_duration}, SECRET_KEY, algorithm="HS256")
+        session_code = jwt.encode({"user_id": user_id, "exp": current_time + session_duration}, SECRET_KEY)
 
 
 

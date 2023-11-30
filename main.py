@@ -157,10 +157,11 @@ def insert_product_with_name(name, user_id):
     return product_id
 
 
-def check_if_database_is_filled(table_schema):
+def find_tables_in_database(table_schema):
     query_sql = "select table_name from information_schema.tables where table_schema=%s"
-    fetch_result = execute_fetch(query_sql, (table_schema,))
-    return fetch_result
+    fetch_result = execute_fetch_all(query_sql, (table_schema,))
+    tables = list(map(lambda x: x.get('table_name'), fetch_result))
+    return tables
 
 
 def execute_sql_query(query_sql, query_values):
@@ -265,6 +266,16 @@ def execute_fetch(query_sql, searched_value):
             print(f"The error '{e}' occurred")
         return query_result
 
+def execute_fetch_all(query_sql, searched_value):
+    with pool.connection() as connection:
+        cursor = connection.cursor(row_factory=dict_row)
+        try:
+            cursor.execute(query_sql, searched_value)
+            query_result = cursor.fetchall()
+        except Error as e:
+            print(f"The error '{e}' occurred")
+        return query_result
+
 
 def delete_product_from_store_positions(product_id, user_id):
     query_sql = "DELETE FROM store_positions WHERE product_id=%s and user_id=%s"
@@ -356,27 +367,31 @@ def change_checkbox_status(product_id, checkbox_status, user_id):
 
 
 def create_tables():
-    tables = (
-        """ CREATE TABLE users (user_id VARCHAR(36) PRIMARY KEY, user_account_number VARCHAR(21) UNIQUE) """,
-        """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE, user_id VARCHAR(36) UNIQUE,
-        CONSTRAINT fk_products_userId FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE) """,
-        """ CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, user_id VARCHAR(36) UNIQUE, 
+    existing_tables = find_tables_in_database(table_schema='public')
+    print(existing_tables)
+    if 'users' not in existing_tables:
+        create_table(""" CREATE TABLE users (user_id VARCHAR(36) PRIMARY KEY, user_account_number VARCHAR(21) UNIQUE) """)
+    if 'products' not in existing_tables:
+        create_table(""" CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE, user_id VARCHAR(36) UNIQUE,
+        CONSTRAINT fk_products_userId FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE) """)
+    if 'store_positions' not in existing_tables:
+        create_table(""" CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, user_id VARCHAR(36) UNIQUE, 
         CONSTRAINT fk_store_productId FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE, 
         CONSTRAINT fk_store_userId FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE)
-        """,
-        """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
-        CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
+        """)
+    if 'barcodes' not in existing_tables:
+        create_table(""" CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
+        CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""")
 
-    )
+
+
+def create_table(table_definition):
     with pool.connection() as connection:
         try:
-            for table in tables:
-                print("creating table: ", table)
-                connection.execute(table)
-            print("Tables established successfully")
+            connection.execute(table_definition)
+            print("Table created successfully")
         except OperationalError as e:
             print(f"The error '{e}' occurred")
-
 
 def authorization_verification(token):
     try:
@@ -670,13 +685,11 @@ def callback():
 on_local_environment = os.getenv('FLY_APP_NAME') is None
 print('on_local_env:', on_local_environment)
 if on_local_environment:
-    if not check_if_database_is_filled('public'):
-        create_tables()
+    create_tables()
     app.run(
         #debug=False,
             #ssl_context=('cert/cert.pem', 'cert/priv_key.pem')
             )
 
 else:
-    if not check_if_database_is_filled(table_schema='public'):
-        create_tables()
+    create_tables()

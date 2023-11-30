@@ -393,19 +393,6 @@ def check_if_session_code():
         raise NotSessionCode
     return session_code
 
-def post_product_Guard():
-    request_body = request.json
-    name = request_body.get('name')
-    quantity = request_body.get('quantity')
-    barcode = request_body.get("barcode")
-    if name and quantity:
-        return {name, quantity}
-    if barcode and quantity:
-        return {barcode, quantity}
-    else:
-        raise BadRequest
-
-
 
 
 @app.route("/store/products/", methods=["GET"])
@@ -424,7 +411,7 @@ def get_product_from_shopping_list():
         session_code = check_if_session_code()
         user_id = authorization_verification(session_code)
         return get_products_from_shoping_list(user_id)
-    except NotValidSessionCode:
+    except NotValidSessionCode or NotSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
@@ -438,14 +425,10 @@ def create_product_in_store():
         name = request_body.get('name')
         quantity = request_body.get('quantity')
         barcode = request_body.get("barcode")
-
-    if user_id:
         if barcode and name:
             return add_product_with_barcode_and_name(barcode, name, user_id)
-
         elif barcode:
             return add_product_with_barcode(barcode, user_id)
-
         elif name:
             try:
                 response = add_product_with_name_to_store(name, quantity, user_id)
@@ -455,18 +438,20 @@ def create_product_in_store():
 
         return "Name or barcode must be specified", 400
 
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 @app.route("/store/products/delivery/", methods=["POST"])
-def transfer_shoppings_to_store():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    product_list = request.json
-    if user_id:
+def transfer_shopping_to_store():
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        product_list = request.json
         response = add_product_from_shopping_list(product_list, user_id)
         return jsonify({"response": response}), 201
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 def add_product_from_shopping_list(product_list, user_id):
@@ -540,13 +525,14 @@ def add_product_with_barcode(barcode, user_id):
 
 @app.route("/cart/items/", methods=["POST"])
 def create_item_at_shopping_list():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    data = request.json
-    name = data.get('name')
-    quantity = data.get('quantity')
-    barcode = data.get("barcode")
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        request_body = request.json
+        name = request_body.get('name')
+        quantity = request_body.get('quantity')
+        barcode = request_body.get("barcode")
+
         if barcode and name:
             return add_product_with_barcode_and_name(barcode, name, user_id)
         elif barcode:
@@ -559,41 +545,45 @@ def create_item_at_shopping_list():
                 return jsonify({"response": name + " product already exist"}), 409
 
         return "Name or barcode must be specified", 400
-
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 @app.route("/cart/items/shoppinglist", methods=["POST"])
 def transfer_item_from_store_to_shopping_list():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    product_list = request.json
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        product_list = request.json
         response = add_finished_products_to_shopping_list(product_list, user_id)
         return jsonify({"response": response}), 201
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 @app.route("/store/products/<id>", methods=["DELETE"])
 def delete_product_from_store(id):
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    product_id = id
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        product_id = id
+
         if product_id is None:
-            return "422", 422
+            return "Product not found", 422
         try:
             delete_product_from_store_positions(product_id, user_id)
         except Error:
-            return "500", 500
+            return "DatabaseError", 500
         return jsonify({"response": "Product deleted from store positions"}), 200
-    jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 @app.route("/cart/items/<id>", methods=["DELETE"])
 def delete_product_from_cart(id):
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    product_id = id
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        product_id = id
+
         if product_id is None:
             return "422", 422
         try:
@@ -601,17 +591,18 @@ def delete_product_from_cart(id):
         except Error:
             return "500", 500
         return jsonify({"response": "Product deleted from shopping list"}), 200
-    jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 @app.route("/store/products/<id>", methods=["PUT", "PATCH"])
 def update_product_in_store(id):
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    request_data = request.json
-    quantity = request_data.get('quantity')
-    name = request_data.get('name')
-    product_id = id
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        request_body = request.json
+        quantity = request_body.get('quantity')
+        name = request_body.get('name')
+        product_id = id
         if (product_id or name or quantity) is None:
             return "422", 422
         try:
@@ -622,21 +613,22 @@ def update_product_in_store(id):
         except ProductAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
         except Error:
-            return "500", 500
+            return "DatabaseError", 500
 
         return jsonify({"response": result}), 201
-    return (jsonify({"login_status": "unlogged"}))
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 @app.route("/cart/items/<id>", methods=["PUT", "PATCH"])
 def update_product_in_shopping_list(id):
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    request_data = request.json
-    check_box_status = request_data.get("checkout")
-    quantity = request_data.get('quantity')
-    name = request_data.get('name')
-    product_id = id
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        request_data = request.json
+        check_box_status = request_data.get("checkout")
+        quantity = request_data.get('quantity')
+        name = request_data.get('name')
+        product_id = id
         if (product_id or name or quantity or check_box_status) is None:
             return "422", 422
         try:
@@ -649,7 +641,8 @@ def update_product_in_shopping_list(id):
         except Error:
             return "500", 500
         return jsonify({"response": result}), 201
-    return (jsonify({"login_status": "unlogged"}))
+    except NotValidSessionCode or NotSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 @app.route("/code/callback")
@@ -668,57 +661,10 @@ def callback():
         current_time = datetime.now(tz=timezone.utc)
         session_duration = timedelta(minutes=1)
         session_code = jwt.encode({"user_id": user_id, "exp": current_time + session_duration}, SECRET_KEY)
-
-
-
-        # print(active_sessions)
         return redirect('http://localhost:3000?session_code=' + session_code)
-       # return jsonify({"session_code": session_code})
 
 
-@app.route("/login")
-def login():
-    print('login endpoint')
-    google_provider_cfg = get_google_provider_cfg()
-    print(google_provider_cfg)
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-    print('base url', request, request.base_url)
-    # Use library to construct the request for Google login and provide
-    # scopes that let you retrieve user's profile from Google
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=request.base_url + "/callback",
-        scope=["openid", "email", "profile"],
-    )
-    print("request uri fro login", request_uri)
-    return redirect(request_uri)
 
-    # response = redirect(request_uri)
-
-    #redir = redirect(request_uri)
-   # redir.headers['headers'] = "ala"
-    #return redir
-
-
-"""
-@app.route("/login/callback")
-def callback():
-     #Get authorization code Google sent back to you
-    print("request from callback", request)
-    code33 = request.args.get("code")
-    #code33=request.headers.get("Authorization")
-    print("code from callbacl:", code33)
-    get_token(code33)
-
-    user_id = get_user_info()
-    if user_id !="denied":
-        print("LOGGED")
-        temporary_code = uuid.uuid4().__str__()
-        active_sessions.update({temporary_code: user_id})
-        print(active_sessions)
-        return redirect('http://localhost:3000?temporary_id='+temporary_code)
-    #return "ok"
-"""
 
 # the http server is run manually only during local development
 on_local_environment = os.getenv('FLY_APP_NAME') is None

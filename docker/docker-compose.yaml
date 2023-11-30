@@ -1,0 +1,45 @@
+
+version: '3.8'
+
+
+
+services:
+
+  postgresdb:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=user
+      - POSTGRES_DB=database
+ 
+
+
+  mysql:
+    image: mysql:8.0
+    profiles: ["sql"]
+    environment:
+      #MYSQL_USER: 'root'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - mafalda
+
+
+volumes:
+  postgres:
+
+networks:
+  mafalda:
+    driver: bridge
+
+ 

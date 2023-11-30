@@ -47,6 +47,8 @@ GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 SECRET_KEY = config("SECRET_KEY", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
+callback_url = config('CALLBACK_URL')
+redirect_url_with_token = config('REDIRECT_URL_WITH_TOKEN')
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
@@ -56,7 +58,13 @@ client = WebApplicationClient(GOOGLE_CLIENT_ID)
 class ProductAlreadyExists(Exception):
     pass
 
+class NotValidSessionCode(Exception):
+    pass
 
+class BadRequest(Exception):
+    pass
+class NotSessionCode(Exception):
+    pass
 class Error(Exception):
     pass
 
@@ -66,23 +74,16 @@ def get_google_provider_cfg():
 
 
 def get_token(code):
-    print("code w get_token", code)
     google_provider_cfg = get_google_provider_cfg()
     token_endpoint = google_provider_cfg["token_endpoint"]
     print("request url in get token:", request.url)
     print("redirect url in get token: ", request.base_url)
-    # test manually opening in browser:
-    # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=https://localhost:5000/code/
-    # already working one:
-    # https://accounts.google.com/o/oauth2/auth?client_id=70482292417-ki5kct2g23kaloksimsjtf1figlvt3ao.apps.googleusercontent.com&response_type=token&scope=email&redirect_uri=http://localhost:5000
-    token_url, headers, body = client.prepare_token_request(  # tu leci
+    token_url, headers, body = client.prepare_token_request(
         token_endpoint,
-        authorization_response=request.url.replace("http", "https"),  # required - from it it mines code etc.
-        redirect_url=request.args.get("redirect_uri")
-        # code=code
+        authorization_response=request.url.replace("http", "https"),
+        redirect_url=request.base_url
+
     )
-    # body = client.prepare_request_body(code=code)
-    # print("Prepared body: ", body)
 
     print("GetTokenRequest Url:", token_url)
     print("GetTokenRequest Headers:", headers)
@@ -93,13 +94,15 @@ def get_token(code):
         data=body,
         auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
     )
-    client.parse_request_body_response(json.dumps(token_response.json()))
+
+    return client.parse_request_body_response(json.dumps(token_response.json()))
 
 
 def get_user_info():
     google_provider_cfg = get_google_provider_cfg()
     userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
     uri, headers, body = client.add_token(userinfo_endpoint)
+    print('user info', headers)
     userinfo_response = requests.get(uri, headers=headers, data=body)
     if userinfo_response.json().get("email_verified"):
         unique_id = userinfo_response.json()["sub"]
@@ -354,14 +357,16 @@ def change_checkbox_status(product_id, checkbox_status, user_id):
 
 def create_tables():
     tables = (
-        """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE) """,
-        """ CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, 
-        CONSTRAINT fk_m FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
+        """ CREATE TABLE users (user_id VARCHAR(36) PRIMARY KEY, user_account_number VARCHAR(21) UNIQUE) """,
+        """ CREATE TABLE products (product_id VARCHAR(36) PRIMARY KEY, name VARCHAR(500) UNIQUE, user_id VARCHAR(36) UNIQUE,
+        CONSTRAINT fk_products_userId FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE) """,
+        """ CREATE TABLE store_positions (product_id VARCHAR(36) PRIMARY KEY, quantity INTEGER, user_id VARCHAR(36) UNIQUE, 
+        CONSTRAINT fk_store_productId FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE, 
+        CONSTRAINT fk_store_userId FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE)
+        """,
         """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
         CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
 
-        """ CREATE TABLE barcodes (product_id VARCHAR(36), barcode VARCHAR(13) PRIMARY KEY,
-                CONSTRAINT fk_b FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE)""",
     )
     with pool.connection() as connection:
         try:
@@ -379,37 +384,60 @@ def authorization_verification(token):
         user_id = payload.get('user_id')
         return user_id
     except jwt.ExpiredSignatureError:
-        print("non valid token")
-        return None
+        raise NotValidSessionCode
+
+
+def check_if_session_code():
+    session_code = request.headers.get("Authorization")
+    if not session_code:
+        raise NotSessionCode
+    return session_code
+
+def post_product_Guard():
+    request_body = request.json
+    name = request_body.get('name')
+    quantity = request_body.get('quantity')
+    barcode = request_body.get("barcode")
+    if name and quantity:
+        return {name, quantity}
+    if barcode and quantity:
+        return {barcode, quantity}
+    else:
+        raise BadRequest
+
+
+
 
 @app.route("/store/products/", methods=["GET"])
 def get_product_from_store():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
         return get_products_from_database(user_id)
-    # return redirect("http://localhost:3000?session_code=unlogged")
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 @app.route("/cart/items/", methods=["GET"])
 def get_product_from_shopping_list():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    if user_id:
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
         return get_products_from_shoping_list(user_id)
-    return jsonify({"response": "non-authorized"}), 401
+    except NotValidSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
 
 
 
 @app.route("/store/products/", methods=["POST"])
 def create_product_in_store():
-    session_code = request.headers.get("Authorization")
-    user_id = authorization_verification(session_code)
-    data = request.json
-    name = data.get('name')
-    quantity = data.get('quantity')
-    barcode = data.get("barcode")
+    try:
+        session_code = check_if_session_code()
+        user_id = authorization_verification(session_code)
+        request_body = request.json
+        name = request_body.get('name')
+        quantity = request_body.get('quantity')
+        barcode = request_body.get("barcode")
 
     if user_id:
         if barcode and name:
@@ -627,9 +655,10 @@ def update_product_in_shopping_list(id):
 @app.route("/code/callback")
 def callback():
     code33 = request.args.get("code")
-    # code33=request.headers.get("Authorization")
-    get_token(code33)
-    user_account_number = get_user_info()
+    response = get_token(code33)
+    id_token = response['id_token']
+    decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+    user_account_number = decoded_token['sub']
     print("user account", user_account_number)
     if user_account_number != "denied":
         print("LOGGED")
@@ -643,16 +672,17 @@ def callback():
 
 
         # print(active_sessions)
-        # return redirect('http://localhost:3000?session_code=' + session_code)
-        return jsonify({"session_code": session_code})
+        return redirect('http://localhost:3000?session_code=' + session_code)
+       # return jsonify({"session_code": session_code})
 
 
 @app.route("/login")
 def login():
+    print('login endpoint')
     google_provider_cfg = get_google_provider_cfg()
     print(google_provider_cfg)
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-
+    print('base url', request, request.base_url)
     # Use library to construct the request for Google login and provide
     # scopes that let you retrieve user's profile from Google
     request_uri = client.prepare_request_uri(
@@ -661,13 +691,13 @@ def login():
         scope=["openid", "email", "profile"],
     )
     print("request uri fro login", request_uri)
-    # return redirect(request_uri)
+    return redirect(request_uri)
 
     # response = redirect(request_uri)
 
-    redir = redirect(request_uri)
-    redir.headers['headers'] = "ala"
-    return redir
+    #redir = redirect(request_uri)
+   # redir.headers['headers'] = "ala"
+    #return redir
 
 
 """
@@ -696,7 +726,10 @@ print('on_local_env:', on_local_environment)
 if on_local_environment:
     if not check_if_database_is_filled('public'):
         create_tables()
-    app.run(debug=False, ssl_context=('cert/cert.pem', 'cert/priv_key.pem'))
+    app.run(
+        #debug=False,
+            #ssl_context=('cert/cert.pem', 'cert/priv_key.pem')
+            )
 
 else:
     if not check_if_database_is_filled(table_schema='public'):

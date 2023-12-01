@@ -53,11 +53,11 @@ def check_if_database_is_filled(table_schema):
     return fetch_result
 
 
-def create_table(table_definition):
+def create_schema(schema_definition):
     with pool.connection() as connection:
         try:
-            connection.execute(table_definition)
-            print("Table created successfully")
+            connection.execute(schema_definition)
+            print("Schema created successfully")
         except OperationalError as e:
             print(f"The error '{e}' occurred")
             raise DatabaseError(e)

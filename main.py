@@ -1,44 +1,25 @@
-import os
-import json
 import datetime
-import jwt
-from psycopg.rows import dict_row
-from flask import Flask, redirect, request, url_for, jsonify, render_template, session
-
-from flask_login import LoginManager
-from datetime import datetime, timezone, timedelta
-from flask_cors import CORS
-
+import json
+import os
 import uuid
-import psycopg
-from psycopg import OperationalError
-from decouple import config
+from datetime import datetime, timezone, timedelta
 
-from flask_login import (
-    LoginManager,
-    current_user,
-    login_required,
-    login_user,
-    logout_user,
-)
-from oauthlib.oauth2 import WebApplicationClient
+import jwt
+import psycopg
 import requests
+from decouple import config
+from flask import Flask, redirect, request, jsonify
+from flask_cors import CORS
+from oauthlib.oauth2 import WebApplicationClient
+from psycopg import OperationalError
+from psycopg.rows import dict_row
 
 from db import pool
-
-# from flask_session import Session
 
 active_sessions = {}
 
 # TODO zwrocic tylko status, dodac zwrotny response do wyswietlenia
 app = Flask('kitchen-maintenance')
-# app.config['SESSION_PERMANENT'] = True
-# app.config['SESSION_TYPE'] = 'filesystem'
-# app.config['SESSION_FILE_DIR'] = "C:/Users/konrad/pythonProject/kitchen_maintenance_class/sessions/"
-# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5)
-# app.config['SECRET_KEY'] = "ala"
-# sess = Session()
-# sess.init_app(app)
 CORS(app)
 
 # OAUTH.2

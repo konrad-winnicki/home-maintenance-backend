@@ -1,14 +1,11 @@
+import json
 import os
-from json import JSONEncoder
-from json import JSONDecoder
+import uuid
+
 import jsonpickle
 from flask import Flask, jsonify
 from flask import request
-from flask import current_app
 from flask_cors import CORS
-import json
-import uuid
-
 
 # TODO zwrocic tylko status, dodac zwrotny response do wyswietlenia
 app = Flask('kitchen-maintenance')

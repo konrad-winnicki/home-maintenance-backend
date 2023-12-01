@@ -6,7 +6,8 @@ from decouple import config
 from flask import request, redirect
 from oauthlib.oauth2 import WebApplicationClient
 
-from api import get_user_from_users, insert_user_to_users
+from persistence import get_user_from_users, insert_user
+from services import generate_unique_id
 from session import create_session
 
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
@@ -15,7 +16,7 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
-def registerOauthCallback(app):
+def register_oauth_callback(app):
     app.route("/code/callback")(callback)
 
 def callback():
@@ -28,7 +29,8 @@ def callback():
         print("LOGGED")
         user_id = get_user_from_users(user_account_number)
         if not user_id:
-            user_id = insert_user_to_users(user_account_number)
+            user_id = generate_unique_id()
+            insert_user(user_id, user_account_number)
         session_code = create_session(user_id)
         return redirect('http://localhost:3000?session_code=' + session_code)
 

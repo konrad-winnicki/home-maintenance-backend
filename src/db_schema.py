@@ -1,16 +1,12 @@
 from db import create_schema
-from persistence import find_tables_in_database
 
 
 def create_tables():
-    existing_tables = find_tables_in_database(table_schema='public')
-    print(existing_tables)
     create_schema(
-        """
-CREATE TABLE IF NOT EXISTS users
+        """CREATE TABLE IF NOT EXISTS users
 (
-user_id             VARCHAR(36) PRIMARY KEY,
-user_account_number VARCHAR(21) UNIQUE
+    user_id             VARCHAR(36) PRIMARY KEY,
+    user_account_number VARCHAR(21) UNIQUE
 );
 CREATE TABLE IF NOT EXISTS products
 (

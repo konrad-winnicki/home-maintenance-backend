@@ -16,10 +16,7 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 
-def register_oauth_callback(app):
-    app.route("/code/callback")(callback)
-
-def callback():
+def oauth2_code_callback():
     response = get_token()
     id_token = response['id_token']
     decoded_token = jwt.decode(id_token, options={"verify_signature": False})

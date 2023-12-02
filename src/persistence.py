@@ -2,7 +2,7 @@ import psycopg
 from psycopg import Error
 from psycopg.rows import dict_row
 
-from db import pool, execute_fetch, execute_fetch_all
+from db import pool, execute_fetch
 from errors import ProductAlreadyExists
 
 
@@ -37,13 +37,6 @@ def insert_product(productId, name, user_id):
 def insert_product_with_name(product_id, name, user_id):
     insert_product(product_id, name, user_id)
     return product_id
-
-
-def find_tables_in_database(table_schema):
-    query_sql = "select table_name from information_schema.tables where table_schema=%s"
-    fetch_result = execute_fetch_all(query_sql, (table_schema,))
-    tables = list(map(lambda x: x.get('table_name'), fetch_result))
-    return tables
 
 
 def execute_sql_query(query_sql, query_values):

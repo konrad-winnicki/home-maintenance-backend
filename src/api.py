@@ -9,10 +9,14 @@ from services import add_product_with_barcode_and_name, add_product_with_barcode
     ProductAlreadyExists, add_product_from_shopping_list, add_product_with_name_to_cart, \
     add_finished_products_to_shopping_list, change_name, change_name_in_shopping_list, change_checkbox_status
 from session import InvalidSessionCode, NoSessionCode, authenticate_user
+from src.oauth import oauth2_code_callback
 
 app = Flask('kitchen-maintenance')
 CORS(app)
 
+@app.route("/code/callback")
+def oauth_callback():
+    return oauth2_code_callback()
 
 @app.route("/store/products/", methods=["GET"])
 def get_product_from_store():

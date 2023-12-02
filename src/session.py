@@ -4,15 +4,9 @@ import jwt
 from decouple import config
 from flask import request
 
+from src.errors import InvalidSessionCode, NoSessionCode
+
 SECRET_KEY = config("SECRET_KEY", None)
-
-
-class NoSessionCode(Exception):
-    pass
-
-
-class InvalidSessionCode(Exception):
-    pass
 
 
 def create_session(user_id):

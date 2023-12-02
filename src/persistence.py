@@ -17,7 +17,6 @@ def insert_product_to_shopping_list(productId, name, quantity, user_id):
     execute_sql_query(query_sql, (productId, name, quantity, checkbox, user_id))
 
 
-
 def insert_user(user_id, user_account_number):
     query_sql = "INSERT INTO users VALUES (%s, %s)"
     execute_sql_query(query_sql, (user_id, user_account_number))
@@ -51,8 +50,8 @@ def execute_sql_query(query_sql, query_values):
         return "Product added to database"
 
 
-def get_products_from_database(user_id):
-    query_sql = 'select store_positions.product_id, name, quantity from store_positions join products on store_positions.product_id = products.product_id where store_positions.user_id=%s order by products.name'
+def get_products(user_id):
+    query_sql = 'select product_id, name, quantity from products where user_id=%s order by products.name'
     with pool.connection() as connection:
         cursor = connection.cursor(row_factory=dict_row)
         try:
@@ -132,10 +131,8 @@ def get_product_id_by_name_from_shoping_list(name, user_id):
     return fetch_result
 
 
-
-
-def delete_product_from_store_positions(product_id, user_id):
-    query_sql = "DELETE FROM store_positions WHERE product_id=%s and user_id=%s"
+def delete_from_products(product_id, user_id):
+    query_sql = "DELETE FROM products WHERE product_id=%s and user_id=%s"
     execute_sql_query(query_sql, (product_id, user_id,))
 
 
@@ -144,8 +141,8 @@ def delete_product_from_shopping_list(product_id, user_id):
     execute_sql_query(query_sql, (product_id, user_id,))
 
 
-def increase_product_quantity_in_store_positions(product_id, quantity, user_id):
-    query_sql = "update store_positions SET quantity=%s where product_id=%s and user_id=%s"
+def increase_product_quantity_in_products(product_id, quantity, user_id):
+    query_sql = "update products SET quantity=%s where product_id=%s and user_id=%s"
     execute_sql_query(query_sql, (quantity, product_id, user_id,))
     return "Product quantity changed"
 

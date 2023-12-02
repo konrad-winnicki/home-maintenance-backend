@@ -23,3 +23,6 @@ CREATE TABLE IF NOT EXISTS barcodes
     CONSTRAINT fk_b FOREIGN KEY (product_id) REFERENCES products (product_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 """)
+
+
+

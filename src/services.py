@@ -5,7 +5,7 @@ from persistence import get_product_id_by_name, replace_product_in_store_positio
     change_product_name_in_shopping_list, change_checkbox_status_in_database, check_if_product_id_in_products, \
     insert_product, delete_product_from_shopping_list, \
     insert_product_to_shopping_list, insert_product_with_name, insert_product_to_store_positions, insert_barcode, \
-    get_quantity_by_id, increase_product_quantity_in_store_positions, get_product_id_for_barcode
+    get_quantity_by_id, increase_product_quantity_in_products, get_product_id_for_barcode
 
 
 
@@ -90,7 +90,7 @@ def add_product_to_store_positions(product_id, quantity, user_id):
         insert_product_to_store_positions(product_id, quantity, user_id)
     except ProductAlreadyExists:
         existing_quantity = get_quantity_by_id(product_id, user_id)
-        increase_product_quantity_in_store_positions(product_id, existing_quantity + quantity, user_id)
+        increase_product_quantity_in_products(product_id, existing_quantity + quantity, user_id)
 
 
 def add_product_with_barcode(barcode, user_id):

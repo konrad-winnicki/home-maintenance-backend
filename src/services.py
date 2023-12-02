@@ -62,20 +62,14 @@ def add_product_with_name_to_cart(name, quantity, user_id):
     return "Product added to database"
 
 
-def add_product_with_name_to_store(name, quantity, user_id):
-    existing_product_id = get_product_id_by_name(name, user_id)
+def add_product(name, quantity, user_id):
     try:
-        if existing_product_id:
-            product_id = existing_product_id
-        else:
-            product_id = generate_unique_id()
-            insert_product_with_name(product_id, name, user_id)
-
-        insert_product_to_store_positions(product_id, quantity, user_id)
+        product_id = generate_unique_id()
+        insert_product(product_id, name, quantity, user_id)
 
     except ProductAlreadyExists:
         raise ProductAlreadyExists
-    return "Product added to database"
+    return product_id
 
 
 def add_product_with_barcode_and_name(barcode, name, user_id):

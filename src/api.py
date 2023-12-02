@@ -5,7 +5,7 @@ from errors import DatabaseError
 from persistence import get_products_from_database, \
     get_products_from_shoping_list, delete_product_from_shopping_list, \
     increase_product_quantity_in_store_positions, delete_product_from_store_positions, change_quantity_in_shopping_list
-from services import add_product_with_barcode_and_name, add_product_with_barcode, add_product_with_name_to_store, \
+from services import add_product_with_barcode_and_name, add_product_with_barcode, add_product, \
     ProductAlreadyExists, add_product_from_shopping_list, add_product_with_name_to_cart, \
     add_finished_products_to_shopping_list, change_name, change_name_in_shopping_list, change_checkbox_status
 from session import InvalidSessionCode, NoSessionCode, authenticate_user
@@ -37,25 +37,19 @@ def get_product_from_shopping_list():
 
 
 @app.route("/store/products/", methods=["POST"])
-def create_product_in_store():
+def add_product_route():
     try:
         user_id = authenticate_user()
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        barcode = request_body.get("barcode")
-        if barcode and name:
-            return add_product_with_barcode_and_name(barcode, name, user_id)
-        elif barcode:
-            return add_product_with_barcode(barcode, user_id)
-        elif name:
-            try:
-                response = add_product_with_name_to_store(name, quantity, user_id)
-                return jsonify({"response": response}), 201
-            except ProductAlreadyExists:
-                return jsonify({"response": name + " product already exist"}), 409
-
-        return "Name or barcode must be specified", 400
+        if not name or not quantity:
+            return jsonify({"response": "Missing required attribute"}), 400
+        try:
+            product_id = add_product(name, quantity, user_id)
+            return jsonify({"productId": product_id}), 201
+        except ProductAlreadyExists:
+            return jsonify({"response": name + " product already exist"}), 409
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401

@@ -12,7 +12,7 @@ SECRET_KEY = config("SECRET_KEY", None)
 def create_session(user_id):
     current_time = datetime.now(tz=timezone.utc)
     session_duration = timedelta(minutes=1)
-    session_code = jwt.encode({"user_id": user_id, "exp": current_time + session_duration}, SECRET_KEY)
+    session_code = jwt.encode({"user_id": str(user_id), "exp": current_time + session_duration}, SECRET_KEY)
     return session_code
 
 

@@ -29,9 +29,9 @@ def insert_barcode(barcode, productId, user_id):
     execute_sql_query(query_sql, (productId, barcode, user_id))
 
 
-def insert_product(productId, name, user_id):
-    query_sql = "INSERT INTO products VALUES (%s, %s, %s)"
-    execute_sql_query(query_sql, (productId, name, user_id))
+def insert_product(product_id, name, quantity, user_id):
+    query_sql = "INSERT INTO products (product_id, name, quantity, user_id) VALUES (%s, %s, %s, %s)"
+    execute_sql_query(query_sql, (product_id, name, quantity, user_id))
 
 
 def insert_product_with_name(product_id, name, user_id):
@@ -86,7 +86,8 @@ def get_user_from_users(user_account_number):
     query_sql = "select * from users where user_account_number=%s"
     fetch_result = execute_fetch(query_sql, (user_account_number,))
     if fetch_result:
-        return fetch_result.get("user_id")
+        user_id = fetch_result.get("user_id")
+        return user_id
     return fetch_result
 
 

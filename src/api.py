@@ -23,7 +23,7 @@ def get_product_from_store():
     try:
         user_id = authenticate_user()
         return get_products_from_database(user_id)
-    except InvalidSessionCode:
+    except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 

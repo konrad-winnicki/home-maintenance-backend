@@ -103,7 +103,7 @@ def get_product_id_by_name(name, user_id):
     fetch_result = execute_fetch(query_sql, (name, user_id,))
     if fetch_result:
         return fetch_result.get("product_id")
-    return fetch_result
+    return None
 
 
 def get_quantity_by_id(product_id, user_id):

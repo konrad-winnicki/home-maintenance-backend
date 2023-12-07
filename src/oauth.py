@@ -6,7 +6,7 @@ from decouple import config
 from flask import request, redirect
 from oauthlib.oauth2 import WebApplicationClient
 
-from persistence import get_user, insert_user
+from persistence import get_user_id, insert_user
 from services import generate_unique_id
 from session import create_session
 
@@ -24,7 +24,7 @@ def oauth2_code_callback():
     print("user account", user_account_number)
     if user_account_number != "denied":
         print("LOGGED")
-        user_id = get_user(user_account_number)
+        user_id = get_user_id(user_account_number)
         if not user_id:
             user_id = generate_unique_id()
             insert_user(user_id, user_account_number)

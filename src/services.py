@@ -18,11 +18,12 @@ def add_bought_shopping_items(user_id):
         quantity = item.get('quantity')
         name = item.get('name')
 
+        # TODO: we should get Product object
         existing_product = get_product_by_name(name, user_id)
         if existing_product is None:
             insert_product(item_id, name, quantity, user_id)
         else:
-            product_id = existing_product.get('product_id')
+            product_id = existing_product.get('id')
             total_quantity = quantity + existing_product.get('quantity')
             update_product(product_id, name, total_quantity, user_id)
         delete_shopping_list_item(item_id, user_id)

@@ -35,16 +35,16 @@ def execute_fetch(query_sql, searched_value):
         return query_result
 
 
-def execute_fetch_all(query_sql, searched_value):
+def execute_fetch_all(query_sql, searched_value, mapper):
     with pool.connection() as connection:
         cursor = connection.cursor(row_factory=dict_row)
         try:
             cursor.execute(query_sql, searched_value)
             query_result = cursor.fetchall()
+            return list(map(mapper, query_result))
         except Error as e:
             print(f"The error '{e}' occurred")
             raise DatabaseError(e)
-        return query_result
 
 
 def execute_sql_query(query_sql, query_values):

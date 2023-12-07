@@ -22,48 +22,36 @@ def insert_product(product_id, name, quantity, user_id):
 
 def get_products(user_id):
     query_sql = 'select product_id, name, quantity from products where user_id=%s order by products.name'
-    query_result = execute_fetch_all(query_sql, [user_id])
-    result = []
-    for row in query_result:
-        result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
-    return result
+    return execute_fetch_all(query_sql, [user_id],
+                             lambda row: {"product_id": row["product_id"], "quantity": row["quantity"],
+                                          "name": row["name"]})
 
 
 def get_missing_products(user_id):
     query_sql = 'select product_id, name from products where user_id=%s and quantity = 0'
-    query_result = execute_fetch_all(query_sql, (user_id,))
-    return list(map(lambda row: {"product_id": row["product_id"], "name": row["name"]}, query_result))
+    return execute_fetch_all(query_sql, [user_id],
+                             lambda row: {"product_id": row["product_id"], "name": row["name"]})
 
 
 def get_shopping_list_items(user_id):
-    query_sql = """
-select id, name, quantity, is_bought from shopping_list_items where user_id=%s order by name"""
-    query_result = execute_fetch_all(query_sql, (user_id,))
-    return list(map(lambda row: {"product_id": row["id"], "quantity": row["quantity"], "name": row["name"],
-                                 "checkout": row["is_bought"]}, query_result))
+    query_sql = "select id, name, quantity, is_bought from shopping_list_items where user_id=%s order by name"
+    return execute_fetch_all(query_sql, [user_id],
+                             lambda row: {"product_id": row["id"], "quantity": row["quantity"], "name": row["name"],
+                                          "checkout": row["is_bought"]})
 
 
 def get_bought_shopping_items(user_id):
-    query_sql = """
-    select id, name, quantity from shopping_list_items where user_id=%s and is_bought = true"""
-    query_result = execute_fetch_all(query_sql, [user_id])
-    return list(map(lambda row: {"id": row["id"], "quantity": row["quantity"], "name": row["name"]}, query_result))
+    query_sql = "select id, name, quantity from shopping_list_items where user_id=%s and is_bought = true"
+    return execute_fetch_all(query_sql, [user_id],
+                             lambda row: {"id": row["id"], "quantity": row["quantity"], "name": row["name"]})
 
 
-def get_user_from_users(user_account_number):
+def get_user(user_account_number):
     query_sql = "select * from users where user_account_number=%s"
     fetch_result = execute_fetch(query_sql, [user_account_number])
     if fetch_result:
         user_id = fetch_result.get("user_id")
         return user_id
-    return fetch_result
-
-
-def get_product_id_for_barcode(barcode, user_id):
-    query_sql = "select * from barcodes where barcode=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, [barcode, user_id])
-    if fetch_result:
-        return fetch_result.get("product_id")
     return fetch_result
 
 

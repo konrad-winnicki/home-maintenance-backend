@@ -5,8 +5,7 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from errors import DatabaseError
-from src.errors import ResourceAlreadyExists
+from errors import DatabaseError, ResourceAlreadyExists
 
 dbname = config('DB_NAME')
 user = config('DB_USER')

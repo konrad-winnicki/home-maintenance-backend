@@ -4,7 +4,7 @@ import jwt
 from decouple import config
 from flask import request
 
-from src.errors import InvalidSessionCode, NoSessionCode
+from errors import InvalidSessionCode, NoSessionCode
 
 SECRET_KEY = config("SECRET_KEY", None)
 

@@ -9,7 +9,7 @@ from services import add_product, \
     ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list
 from session import InvalidSessionCode, NoSessionCode, authenticate_user
-from src.oauth import oauth2_code_callback
+from oauth import oauth2_code_callback
 
 app = Flask('kitchen-maintenance')
 CORS(app)
@@ -132,7 +132,6 @@ def add_bought_shopping_items_route():
 def add_missing_products_to_shopping_list_route():
     try:
         user_id = authenticate_user()
-        # products = request.json # TODO: remove from frontend
         response = add_missing_products_to_shopping_list(user_id)
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:

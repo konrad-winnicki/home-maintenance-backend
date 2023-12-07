@@ -1,10 +1,10 @@
 import uuid
 
 from errors import ResourceAlreadyExists
+from persistence import get_bought_shopping_items
 from persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products
-from src.persistence import get_bought_shopping_items
 
 
 def generate_unique_id():
@@ -58,6 +58,7 @@ def add_missing_products_to_shopping_list(user_id):
         try:
             item_id = generate_unique_id()
             insert_shopping_list_item(item_id, name, quantity, user_id)
+            print("dd")
         except ResourceAlreadyExists:
             continue
     return "Products added to shopping list"

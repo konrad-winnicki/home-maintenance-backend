@@ -1,10 +1,12 @@
+import psycopg
+from decouple import config
 from psycopg import Error, OperationalError
 from psycopg.conninfo import make_conninfo
-from psycopg_pool import ConnectionPool
-from decouple import config
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from errors import DatabaseError
+from src.errors import ResourceAlreadyExists
 
 dbname = config('DB_NAME')
 user = config('DB_USER')
@@ -33,7 +35,6 @@ def execute_fetch(query_sql, searched_value):
         return query_result
 
 
-# TODO: deduplicate execute_fetch_one above
 def execute_fetch_all(query_sql, searched_value):
     with pool.connection() as connection:
         cursor = connection.cursor(row_factory=dict_row)
@@ -45,6 +46,15 @@ def execute_fetch_all(query_sql, searched_value):
             raise DatabaseError(e)
         return query_result
 
+
+def execute_sql_query(query_sql, query_values):
+    with pool.connection() as connection:
+        try:
+            connection.execute(query_sql, query_values)
+        except psycopg.errors.UniqueViolation:
+            raise ResourceAlreadyExists
+        except Error as err:
+            print(err)
 
 
 def check_if_database_is_filled(table_schema):

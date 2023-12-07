@@ -3,20 +3,22 @@ from flask_cors import CORS
 
 from errors import DatabaseError
 from persistence import get_products, \
-    get_products_from_shoping_list, delete_product_from_shopping_list, \
-    increase_product_quantity_in_products, delete_from_products, change_quantity_in_shopping_list
-from services import add_product_with_barcode_and_name, add_product_with_barcode, add_product, \
-    ProductAlreadyExists, add_product_from_shopping_list, add_product_with_name_to_cart, \
-    add_finished_products_to_shopping_list, change_name, change_name_in_shopping_list, change_checkbox_status
+    get_shopping_list_items, delete_shopping_list_item, \
+    update_product, delete_product, update_shopping_list_item
+from services import add_product, \
+    ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
+    add_missing_products_to_shopping_list
 from session import InvalidSessionCode, NoSessionCode, authenticate_user
 from src.oauth import oauth2_code_callback
 
 app = Flask('kitchen-maintenance')
 CORS(app)
 
+
 @app.route("/code/callback")
 def oauth_callback():
     return oauth2_code_callback()
+
 
 @app.route("/store/products/", methods=["GET"])
 def get_products_route():
@@ -39,15 +41,15 @@ def add_product_route():
         try:
             product_id = add_product(name, quantity, user_id)
             return jsonify({"productId": product_id}), 201
-        except ProductAlreadyExists:
+        except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
-@app.route("/store/products/<id>", methods=["PUT", "PATCH"])
-def update_product_in_products_route(id):
+@app.route("/store/products/<id>", methods=["PUT"])
+def update_product_route(id):
     try:
         user_id = authenticate_user()
         request_body = request.json
@@ -56,14 +58,11 @@ def update_product_in_products_route(id):
         product_id = id
         if (product_id or name or quantity) is None:
             return jsonify({"response": "Missing required attributes and parameters"}), 400
-
         try:
-            increase_product_quantity_in_products(product_id, quantity, user_id)
-            change_name(product_id, name, user_id)
+            update_product(product_id, name, quantity, user_id)
             result = "Product data updated"
-
-        except ProductAlreadyExists:
-            return jsonify({"response": name + " product already exist"}), 409
+        except ResourceAlreadyExists:
+            return jsonify({"response": name + " product name already in use"}), 409
         except DatabaseError:
             return "DatabaseError", 500
 
@@ -73,14 +72,14 @@ def update_product_in_products_route(id):
 
 
 @app.route("/store/products/<id>", methods=["DELETE"])
-def delete_from_products_route(id):
+def delete_product_route(id):
     try:
         user_id = authenticate_user()
         product_id = id
         if product_id is None:
             return jsonify({"response": "Missing required parameter"}), 400
         try:
-            delete_from_products(product_id, user_id)
+            delete_product(product_id, user_id)
         except DatabaseError:
             return "DatabaseError", 500
         return jsonify({"response": "Product deleted from store positions"}), 200
@@ -89,7 +88,7 @@ def delete_from_products_route(id):
 
 
 @app.route("/cart/items/", methods=["POST"])
-def add_product_to_shopping_list_route():
+def add_shopping_list_item_route():
     try:
         user_id = authenticate_user()
         request_body = request.json
@@ -99,90 +98,80 @@ def add_product_to_shopping_list_route():
             return jsonify({"response": "Missing required attribute"}), 400
 
         try:
-            response = add_product_with_name_to_cart(name, quantity, user_id)
+            response = add_shopping_list_item(name, quantity, user_id)
             return jsonify({"response": response}), 201
-        except ProductAlreadyExists:
+        except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
-
 @app.route("/cart/items/", methods=["GET"])
-def get_product_from_shopping_list():
+def get_shopping_list_items_route():
     try:
         user_id = authenticate_user()
-        return get_products_from_shoping_list(user_id)
+        return get_shopping_list_items(user_id)
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
-
-
+# TODO: move to POST /delivery
 @app.route("/store/products/delivery/", methods=["POST"])
-def transfer_shopping_to_store():
+def add_bought_shopping_items_route():
     try:
         user_id = authenticate_user()
-        product_list = request.json
-        response = add_product_from_shopping_list(product_list, user_id)
+        response = add_bought_shopping_items(user_id)
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
-
-
+# TODO: move to POST /transfers or /store/transfer
 @app.route("/cart/items/shoppinglist", methods=["POST"])
-def transfer_item_from_store_to_shopping_list():
+def add_missing_products_to_shopping_list_route():
     try:
         user_id = authenticate_user()
-        product_list = request.json
-        response = add_finished_products_to_shopping_list(product_list, user_id)
+        # products = request.json # TODO: remove from frontend
+        response = add_missing_products_to_shopping_list(user_id)
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
-
-
 
 
 @app.route("/cart/items/<id>", methods=["DELETE"])
-def delete_product_from_cart(id):
+def delete_shopping_list_item_route(id):
     try:
         user_id = authenticate_user()
-        product_id = id
-
-        if product_id is None:
-            return "422", 422
+        item_id = id
+        if item_id is None:
+            return jsonify({"response": "Missing required attribute"}), 400
         try:
-            delete_product_from_shopping_list(product_id, user_id)
+            delete_shopping_list_item(item_id, user_id)
         except DatabaseError:
-            return "500", 500
+            return "DatabaseError", 500
         return jsonify({"response": "Product deleted from shopping list"}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
 
-
-
 @app.route("/cart/items/<id>", methods=["PUT", "PATCH"])
-def update_product_in_shopping_list(id):
+def update_shopping_list_item_route(id):
     try:
         user_id = authenticate_user()
         request_data = request.json
-        check_box_status = request_data.get("checkout")
+        is_bought = request_data.get("checkout")
         quantity = request_data.get('quantity')
         name = request_data.get('name')
-        product_id = id
-        if (product_id or name or quantity or check_box_status) is None:
-            return "422", 422
+        item_id = id
+        if (item_id or name or quantity or is_bought) is None:
+            return jsonify({"response": "Missing required attribute"}), 400
+
         try:
-            change_quantity_in_shopping_list(product_id, quantity, user_id)
-            change_name_in_shopping_list(product_id, name, user_id)
-            change_checkbox_status(product_id, check_box_status, user_id)
-            result = "Product data updated"
-        except ProductAlreadyExists:
-            return jsonify({"response": name + " product already exist"}), 409
+            update_shopping_list_item(item_id, name, quantity, is_bought, user_id)
+            result = "Shopping list item updated"
+        except ResourceAlreadyExists:
+            return jsonify({"response": name + " shopping list item already exists"}), 409
         except DatabaseError:
             return "500", 500
         return jsonify({"response": result}), 201

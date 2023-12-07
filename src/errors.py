@@ -6,7 +6,7 @@ class DatabaseError(Error):
     pass
 
 
-class ProductAlreadyExists(Error):
+class ResourceAlreadyExists(Error):
     pass
 
 

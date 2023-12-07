@@ -1,89 +1,58 @@
-import psycopg
-from psycopg import Error
-from psycopg.rows import dict_row
-
-from db import pool, execute_fetch
-from errors import ProductAlreadyExists
+from db import execute_fetch_all, execute_sql_query, execute_fetch
 
 
-def insert_product_to_store_positions(productId, quantity, user_id):
-    query_sql = "INSERT INTO store_positions VALUES (%s, %s, %s)"
-    execute_sql_query(query_sql, (productId, quantity, user_id))
-
-
-def insert_product_to_shopping_list(productId, name, quantity, user_id):
-    checkbox = False
-    query_sql = "INSERT INTO shopping_list VALUES (%s, %s, %s, %s, %s)"
-    execute_sql_query(query_sql, (productId, name, quantity, checkbox, user_id))
+def insert_shopping_list_item(item_id, name, quantity, user_id):
+    is_bought = False
+    query_sql = """INSERT INTO shopping_list_items 
+                    (id, name, user_id, quantity, is_bought)
+                    VALUES (%s, %s, %s, %s, %s)"""
+    execute_sql_query(query_sql, [item_id, name, user_id, quantity, is_bought])
 
 
 def insert_user(user_id, user_account_number):
     query_sql = "INSERT INTO users VALUES (%s, %s)"
-    execute_sql_query(query_sql, (user_id, user_account_number))
+    execute_sql_query(query_sql, [user_id, user_account_number])
     return user_id
-
-
-def insert_barcode(barcode, productId, user_id):
-    query_sql = "INSERT INTO barcodes VALUES (%s, %s, %s)"
-    execute_sql_query(query_sql, (productId, barcode, user_id))
 
 
 def insert_product(product_id, name, quantity, user_id):
     query_sql = "INSERT INTO products (product_id, name, quantity, user_id) VALUES (%s, %s, %s, %s)"
-    execute_sql_query(query_sql, (product_id, name, quantity, user_id))
-
-
-def insert_product_with_name(product_id, name, user_id):
-    insert_product(product_id, name, user_id)
-    return product_id
-
-
-def execute_sql_query(query_sql, query_values):
-    with pool.connection() as connection:
-        try:
-            connection.execute(query_sql, query_values)
-            print("Product inserted successfully")
-        except psycopg.errors.UniqueViolation:
-            raise ProductAlreadyExists
-        except Error as err:
-            print(err)
-        return "Product added to database"
+    execute_sql_query(query_sql, [product_id, name, quantity, user_id])
 
 
 def get_products(user_id):
     query_sql = 'select product_id, name, quantity from products where user_id=%s order by products.name'
-    with pool.connection() as connection:
-        cursor = connection.cursor(row_factory=dict_row)
-        try:
-            cursor.execute(query_sql, (user_id,))
-            result = []
-            for row in cursor.fetchall():
-                result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
-            return result
-        except Error as e:
-            print(f"The error '{e}' occurred")
+    query_result = execute_fetch_all(query_sql, [user_id])
+    result = []
+    for row in query_result:
+        result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"]})
+    return result
 
 
-def get_products_from_shoping_list(user_id):
-    query_sql = 'select product_id, name, quantity, checkout from shopping_list where user_id=%s order by name'
-    with pool.connection() as connection:
-        cursor = connection.cursor(row_factory=dict_row)
+def get_missing_products(user_id):
+    query_sql = 'select product_id, name from products where user_id=%s and quantity = 0'
+    query_result = execute_fetch_all(query_sql, (user_id,))
+    return list(map(lambda row: {"product_id": row["product_id"], "name": row["name"]}, query_result))
 
-        try:
-            cursor.execute(query_sql, (user_id,))
-            result = []
 
-            for row in cursor.fetchall():
-                result.append({"product_id": row["product_id"], "quantity": row["quantity"], "name": row["name"],
-                               "checkout": row["checkout"]})
-            return result
-        except Error as e:
-            print(f"The error '{e}' occurred")
+def get_shopping_list_items(user_id):
+    query_sql = """
+select id, name, quantity, is_bought from shopping_list_items where user_id=%s order by name"""
+    query_result = execute_fetch_all(query_sql, (user_id,))
+    return list(map(lambda row: {"product_id": row["id"], "quantity": row["quantity"], "name": row["name"],
+                                 "checkout": row["is_bought"]}, query_result))
+
+
+def get_bought_shopping_items(user_id):
+    query_sql = """
+    select id, name, quantity from shopping_list_items where user_id=%s and is_bought = true"""
+    query_result = execute_fetch_all(query_sql, [user_id])
+    return list(map(lambda row: {"id": row["id"], "quantity": row["quantity"], "name": row["name"]}, query_result))
 
 
 def get_user_from_users(user_account_number):
     query_sql = "select * from users where user_account_number=%s"
-    fetch_result = execute_fetch(query_sql, (user_account_number,))
+    fetch_result = execute_fetch(query_sql, [user_account_number])
     if fetch_result:
         user_id = fetch_result.get("user_id")
         return user_id
@@ -92,102 +61,35 @@ def get_user_from_users(user_account_number):
 
 def get_product_id_for_barcode(barcode, user_id):
     query_sql = "select * from barcodes where barcode=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, (barcode, user_id,))
+    fetch_result = execute_fetch(query_sql, [barcode, user_id])
     if fetch_result:
         return fetch_result.get("product_id")
     return fetch_result
 
 
-def get_product_id_by_name(name, user_id):
+def get_product_by_name(name, user_id):
     query_sql = "select * from products where name=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, (name, user_id,))
+    fetch_result = execute_fetch(query_sql, [name, user_id])
     if fetch_result:
-        return fetch_result.get("product_id")
+        return fetch_result
     return None
 
 
-def get_quantity_by_id(product_id, user_id):
-    query_sql = "select * from store_positions where product_id=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, (product_id, user_id,))
-    if fetch_result:
-        return fetch_result.get("quantity")
-    return fetch_result
-
-
-def check_if_product_id_in_products(product_id, user_id):
-    query_sql = "select * from products where product_id=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, (product_id, user_id,))
-    if fetch_result:
-        return fetch_result.get("product_id")
-    return fetch_result
-
-
-#######
-def get_product_id_by_name_from_shoping_list(name, user_id):
-    query_sql = "select * from shopping_list where name=%s and user_id=%s"
-    fetch_result = execute_fetch(query_sql, (name, user_id,))
-    if fetch_result:
-        return fetch_result.get("product_id")
-    return fetch_result
-
-
-def delete_from_products(product_id, user_id):
+def delete_product(product_id, user_id):
     query_sql = "DELETE FROM products WHERE product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (product_id, user_id,))
+    execute_sql_query(query_sql, [product_id, user_id])
 
 
-def delete_product_from_shopping_list(product_id, user_id):
-    query_sql = "DELETE FROM shopping_list WHERE product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (product_id, user_id,))
+def delete_shopping_list_item(item_id, user_id):
+    query_sql = "DELETE FROM shopping_list_items WHERE id=%s and user_id=%s"
+    execute_sql_query(query_sql, [item_id, user_id])
 
 
-def increase_product_quantity_in_products(product_id, quantity, user_id):
-    query_sql = "update products SET quantity=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (quantity, product_id, user_id,))
-    return "Product quantity changed"
+def update_product(product_id, name, quantity, user_id):
+    query_sql = "update products SET name=%s, quantity=%s where product_id=%s and user_id=%s"
+    execute_sql_query(query_sql, [name, quantity, product_id, user_id])
 
 
-def change_product_name(product_id, name, user_id):
-    query_sql = "update products SET name=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (name, product_id, user_id,))
-    return "Product name changed in database"
-
-
-def change_quantity_in_store(product_id, quantity, user_id):
-    query_sql = "update store_positions SET quantity=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (quantity, product_id, user_id,))
-    return "Product quantity changed in database"
-
-
-def change_quantity_in_shopping_list(product_id, quantity, user_id):
-    query_sql = "update shopping_list SET quantity=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (quantity, product_id, user_id,))
-    return "Product quantity changed in database"
-
-
-def change_product_name_in_shopping_list(product_id, name, user_id):
-    query_sql = "update shopping_list SET name=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (name, product_id, user_id,))
-    return "Product name changed in database"
-
-
-def change_checkbox_status_in_database(product_id, checkbox_status, user_id):
-    query_sql = "update shopping_list SET checkout=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (checkbox_status, product_id, user_id,))
-    return "Product name changed in database"
-
-
-def replace_product_in_store_positions(product_id, new_id, user_id):
-    query_sql = "update store_positions SET product_id=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (new_id, product_id, user_id,))
-    return "Product name changed in database"
-
-
-def replace_product_in_shopping_list(product_id, new_id, user_id):
-    query_sql = "update shopping_list SET product_id=%s where product_id=%s and user_id=%s"
-    execute_sql_query(query_sql, (new_id, product_id, user_id,))
-    return "Product name changed in database"
-
-
-
-
+def update_shopping_list_item(item_id, name, quantity, is_bought, user_id):
+    query_sql = "update shopping_list_items SET name=%s, quantity=%s, is_bought=%s where id=%s and user_id=%s"
+    execute_sql_query(query_sql, [name, quantity, is_bought, item_id, user_id])

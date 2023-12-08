@@ -37,7 +37,7 @@ def add_shopping_list_item(name, quantity, user_id):
 
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
-    return "Shopping list item added"
+    return item_id
 
 
 def add_product(name, quantity, user_id):

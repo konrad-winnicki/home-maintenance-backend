@@ -36,7 +36,7 @@ def add_product_route():
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        if not name or not quantity:
+        if (name or quantity) is None:
             return jsonify({"response": "Missing required attribute"}), 400
         try:
             product_id = add_product(name, quantity, user_id)
@@ -66,7 +66,7 @@ def update_product_route(id):
         except DatabaseError:
             return "DatabaseError", 500
 
-        return jsonify({"response": result}), 201
+        return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 
@@ -98,8 +98,9 @@ def add_shopping_list_item_route():
             return jsonify({"response": "Missing required attribute"}), 400
 
         try:
-            response = add_shopping_list_item(name, quantity, user_id)
-            return jsonify({"response": response}), 201
+            item_id = add_shopping_list_item(name, quantity, user_id)
+            headers = {'Location': f'/cart/items/{item_id}'}
+            return ({"response": item_id}), 201, headers # TODO: remove body
         except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 
@@ -163,6 +164,7 @@ def update_shopping_list_item_route(id):
         quantity = request_data.get('quantity')
         name = request_data.get('name')
         item_id = id
+        # FIXME: invalid use of or and None
         if (item_id or name or quantity or is_bought) is None:
             return jsonify({"response": "Missing required attribute"}), 400
 
@@ -173,6 +175,6 @@ def update_shopping_list_item_route(id):
             return jsonify({"response": name + " shopping list item already exists"}), 409
         except DatabaseError:
             return "500", 500
-        return jsonify({"response": result}), 201
+        return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401

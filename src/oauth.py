@@ -21,9 +21,7 @@ def oauth2_code_callback():
     id_token = response['id_token']
     decoded_token = jwt.decode(id_token, options={"verify_signature": False})
     user_account_number = decoded_token['sub']
-    print("user account", user_account_number)
     if user_account_number != "denied":
-        print("LOGGED")
         user_id = get_user_id(user_account_number)
         if not user_id:
             user_id = generate_unique_id()

@@ -1,14 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from errors import DatabaseError
+from errors import DatabaseError, NoSessionCode, InvalidSessionCode
 from persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
     update_product, delete_product, update_shopping_list_item
 from services import add_product, \
     ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list
-from session import InvalidSessionCode, NoSessionCode, authenticate_user
+from session import authenticate_user
 from oauth import oauth2_code_callback
 
 app = Flask('kitchen-maintenance')
@@ -25,7 +25,7 @@ def get_products_route():
     try:
         user_id = authenticate_user()
         return get_products(user_id)
-    except InvalidSessionCode or NoSessionCode:
+    except (InvalidSessionCode, NoSessionCode):
         return jsonify({"response": "non-authorized"}), 401
 
 

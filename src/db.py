@@ -27,7 +27,9 @@ def execute_fetch(query_sql, searched_value):
         cursor = connection.cursor(row_factory=dict_row)
         try:
             cursor.execute(query_sql, searched_value)
+            print("----")
             query_result = cursor.fetchone()
+            print("----")
         except Error as e:
             print(f"The error '{e}' occurred")
             raise DatabaseError(e)

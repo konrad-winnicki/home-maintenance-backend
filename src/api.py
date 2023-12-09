@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from errors import DatabaseError, NoSessionCode, InvalidSessionCode
+from errors import DatabaseError, NoSessionCode, InvalidSessionCode, ResourceNotExists
 from persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
     update_product, delete_product, update_shopping_list_item
@@ -80,9 +80,16 @@ def delete_product_route(id):
             return jsonify({"response": "Missing required parameter"}), 400
         try:
             delete_product(product_id, user_id)
-        except DatabaseError:
-            return "DatabaseError", 500
+
+        except DatabaseError as e:
+            return jsonify({"response": "DatabaseError"}), 500
+        except ResourceNotExists:
+            return jsonify({"response": f'Product with id {product_id} not exists'}), 404
+        except Exception as e:
+            print(e)
+            return "Unknown error", 500
         return jsonify({"response": "Product deleted from store positions"}), 200
+
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
 

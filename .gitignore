@@ -1,7 +1,8 @@
 .idea
 venv
 .venv
-.env
+.env_dev
+.env_test
 3tabele.txt
 ostatni.txt
 pierwszysql.txt

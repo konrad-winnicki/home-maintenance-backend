@@ -1,4 +1,5 @@
 from db import execute_fetch_all, execute_sql_query, execute_fetch
+from errors import ResourceNotExists
 
 
 def insert_shopping_list_item(item_id, name, quantity, user_id):
@@ -61,10 +62,20 @@ def get_product_by_name(name, user_id):
         return {"id": fetch_result.get('id'), "quantity": fetch_result.get('quantity')}
 
 
+def get_product_by_id(product_id, user_id):
+    query_sql = "select * from products where id=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, [product_id, user_id])
+    if fetch_result:
+        return {"name": fetch_result.get('name'), "quantity": fetch_result.get('quantity')}
+    return None
+
 def delete_product(product_id, user_id):
+    product_existing = get_product_by_id(product_id, user_id)
+    if not product_existing:
+        raise ResourceNotExists
+
     query_sql = "DELETE FROM products WHERE id=%s and user_id=%s"
     execute_sql_query(query_sql, [product_id, user_id])
-
 
 def delete_shopping_list_item(item_id, user_id):
     query_sql = "DELETE FROM shopping_list_items WHERE id=%s and user_id=%s"

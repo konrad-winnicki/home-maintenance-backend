@@ -9,6 +9,9 @@ class DatabaseError(Error):
 class ResourceAlreadyExists(Error):
     pass
 
+class ResourceNotExists(Error):
+    pass
+
 
 class NoSessionCode(Exception):
     pass

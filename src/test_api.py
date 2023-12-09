@@ -135,16 +135,24 @@ def test_user_lists_only_own_products(user_tokens):
 # TODO: def test_updating_product quantity and name
 def test_update_product(user_token):
     # given
-    product = some_product()
+    product = some_product('Product', 1)
     location = add_product(user_token, product)
-    # updated_product =
+    updated_product = some_product('Updated name', 999)
 
     # when
     response = (app.test_client()
-                .put(location, headers={'Authorization': user_token}, json=product))
+                .put(location, headers={'Authorization': user_token}, json=updated_product))
 
     # then
     assert response.status_code == 200
+    code, body = list_products(user_token)
+
+    print(body)
+    assert len(body) == 1
+    assert body[0]['name'] == updated_product['name']
+    assert body[0]['quantity'] == updated_product['quantity']
+    assert location.endswith(body[0]['product_id'])
+
     # response.
 
 

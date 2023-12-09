@@ -20,6 +20,26 @@ def oauth_callback():
     return oauth2_code_callback()
 
 
+@app.route("/homes/", methods=["POST"])
+def add_home():
+    try:
+        user_id = authenticate_user()
+        request_body = request.json
+        name = request_body.get('name')
+        if name is None:
+            return jsonify({"response": "Missing required attribute"}), 400
+
+        home_id = add_home(name, user_id)
+        headers = {'Location': f'/homes/{home_id}'}
+        return 201, headers
+
+    except InvalidSessionCode or NoSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
+
+
 @app.route("/store/products/", methods=["GET"])
 def get_products_route():
     try:

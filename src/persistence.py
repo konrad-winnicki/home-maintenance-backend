@@ -16,6 +16,11 @@ def insert_user(user_id, user_account_number):
     return user_id
 
 
+def insert_home(home_id, name, user_id):
+    query_sql = "INSERT INTO homes (id, name, user_id) VALUES (%s, %s, %s)"
+    execute_sql_query(query_sql, [home_id, name, user_id])
+
+
 def insert_product(product_id, name, quantity, user_id):
     query_sql = "INSERT INTO products (id, name, quantity, user_id) VALUES (%s, %s, %s, %s)"
     execute_sql_query(query_sql, [product_id, name, quantity, user_id])

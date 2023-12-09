@@ -148,7 +148,7 @@ def add_bought_shopping_items_route():
     try:
         user_id = authenticate_user()
         response = add_bought_shopping_items(user_id)
-        return jsonify({"response": response}), 201
+        return jsonify({"response": response}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
     except Exception as e:

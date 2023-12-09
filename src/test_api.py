@@ -5,6 +5,7 @@ import re
 import string
 
 import pytest
+from assertpy import assert_that
 
 from services import generate_unique_id
 from session import create_session
@@ -76,11 +77,9 @@ def test_adding_products(user_token):
     assert response2.status_code == 201
 
     _, body = list_products(user_token)
-    assert len(body) == 2
-    assert body[0]['name'] == 'Bread'
-    assert body[0]['quantity'] == 1
-    assert body[1]['name'] == 'Milk'
-    assert body[1]['quantity'] == 2
+    assert_that(body).extracting('name', sort='name').contains_only('Bread', 'Milk')
+    assert_that(body).extracting('quantity', sort='name').contains_only(1, 2)
+    assert_that(body).extracting('product_id').is_not_empty()
 
 
 def test_adding_product_with_same_name_fails(user_token):
@@ -108,13 +107,9 @@ def test_list_products(user_token):
     # then
     assert response.status_code == 200
     body = json.loads(response.data.decode('utf-8'))
-    assert len(body) == 2
-    assert body[0]['name'] == 'P1'
-    assert body[0]['quantity'] == 1
-    assert len(body[0]['product_id']) > 0
-    assert body[1]['name'] == 'P2'
-    assert body[1]['quantity'] == 2
-    assert len(body[1]['product_id']) > 0
+    assert_that(body).extracting('name', sort='name').contains_only('P1', 'P2')
+    assert_that(body).extracting('quantity', sort='name').contains_only(1, 2)
+    assert_that(body).extracting('product_id').is_not_empty()
 
 
 def test_user_lists_only_own_products(user_tokens):
@@ -132,7 +127,6 @@ def test_user_lists_only_own_products(user_tokens):
     assert body[0]['quantity'] == 2
 
 
-# TODO: def test_updating_product quantity and name
 def test_update_product(user_token):
     # given
     product = some_product('Product', 1)
@@ -145,15 +139,9 @@ def test_update_product(user_token):
 
     # then
     assert response.status_code == 200
-    code, body = list_products(user_token)
-
-    print(body)
+    _, body = list_products(user_token)
     assert len(body) == 1
-    assert body[0]['name'] == updated_product['name']
-    assert body[0]['quantity'] == updated_product['quantity']
-    assert location.endswith(body[0]['product_id'])
-
-    # response.
+    assert_that(body[0]).is_equal_to(updated_product, ignore='product_id')
 
 
 # TODO: def test_deleting_product
@@ -177,13 +165,11 @@ def test_delete_shopping_item(user_token):
     status_code, products_in_database_before_deletion = list_shopping_items(user_token)
     assert len(products_in_database_before_deletion) == 1
 
-
     response = app.test_client().delete(location, headers={'Authorization': user_token})
     assert response.status_code == 200
 
     status_code, products_in_database_after_deletion = list_products(user_token)
     assert len(products_in_database_after_deletion) == 0
-
 
 
 def test_delete_product_fails_if_non_existing_id(user_token):
@@ -232,6 +218,23 @@ def test_adding_shopping_item(user_token):
     assert body[0]['name'] == shopping_item['name']
     assert body[0]['quantity'] == shopping_item['quantity']
 
+
+def test_update_shopping_item(user_token):
+    # given
+    product = some_shopping_item('Product', 1)
+    location = add_shopping_item(user_token, product)
+    updated_shopping_item = some_shopping_item('Updated name', 999)
+    updated_shopping_item['checkout'] = False
+
+    # when
+    response = (app.test_client()
+                .put(location, headers={'Authorization': user_token}, json=updated_shopping_item))
+
+    # then
+    assert response.status_code == 200
+    _, body = list_shopping_items(user_token)
+    assert len(body) == 1
+    assert_that(body[0]).is_equal_to(updated_shopping_item, ignore=['product_id'])
 
 def test_list_shopping_items(user_token):
     # given
@@ -338,7 +341,7 @@ def test_adding_not_bought_shopping_items_to_products(user_token):
                 .post("/store/products/delivery/", headers={'Authorization': user_token}))
 
     # then
-    response.status_code == 200
+    assert response.status_code == 200
     status, products = list_products(user_token)
     assert len(products) == 0
 
@@ -356,15 +359,15 @@ def test_adding_bought_shopping_items_to_products(user_token):
 
     # and marked as bought
     new_bought_item['checkout'] = existing_bought_item['checkout'] = True
-    update_item(user_token, new_bought_item_location, new_bought_item)
-    update_item(user_token, existing_bought_item_location, existing_bought_item)
+    update_resource(user_token, new_bought_item_location, new_bought_item)
+    update_resource(user_token, existing_bought_item_location, existing_bought_item)
 
     # when
     response = (app.test_client()
                 .post("/store/products/delivery/", headers={'Authorization': user_token}))
 
     # then
-    response.status_code == 200
+    assert response.status_code == 200
     status, products = list_products(user_token)
     assert len(products) == 2
     existing_product = next(filter(lambda p: p['name'] == product['name'], products))
@@ -379,10 +382,9 @@ def add_product(token, product):
     assert response.status_code == 201
     return response.headers['Location']
 
-# TODO: probably would be enough to use update_resource()
-def update_product(token, location, product):
+def update_resource(token, location, resource):
     response = (app.test_client()
-                .put(location, headers={'Authorization': token}, json=product))
+                .put(location, headers={'Authorization': token}, json=resource))
     assert response.status_code == 200
     return response
 
@@ -392,13 +394,6 @@ def add_shopping_item(token, shopping_item):
                 .post("/cart/items/", headers={'Authorization': token}, json=shopping_item))
     assert response.status_code == 201
     return response.headers['Location']
-
-
-def update_item(token, location, item):
-    response = (app.test_client()
-                .put(location, headers={'Authorization': token}, json=item))
-    assert response.status_code == 200
-    return response
 
 
 def list_products(token):

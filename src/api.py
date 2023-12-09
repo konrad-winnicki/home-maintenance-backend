@@ -39,7 +39,7 @@ def add_product_route():
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        if (name or quantity) is None:
+        if (name and quantity) is None:
             return jsonify({"response": "Missing required attribute"}), 400
         try:
             product_id = add_product(name, quantity, user_id)
@@ -63,7 +63,7 @@ def update_product_route(id):
         quantity = request_body.get('quantity')
         name = request_body.get('name')
         product_id = id
-        if (product_id or name or quantity) is None:
+        if (product_id and name and quantity) is None:
             return jsonify({"response": "Missing required attributes and parameters"}), 400
         try:
             update_product(product_id, name, quantity, user_id)
@@ -112,7 +112,7 @@ def add_shopping_list_item_route():
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        if (name or quantity) is None:
+        if (name and quantity) is None:
             return jsonify({"response": "Missing required attribute"}), 400
 
         try:
@@ -202,7 +202,7 @@ def update_shopping_list_item_route(id):
         name = request_data.get('name')
         item_id = id
         # FIXME: invalid use of or and None
-        if (item_id or name or quantity or is_bought) is None:
+        if (item_id and name and quantity and is_bought) is None:
             return jsonify({"response": "Missing required attribute"}), 400
 
         try:
@@ -218,3 +218,5 @@ def update_shopping_list_item_route(id):
     except Exception as e:
         print(e)
         return "Unknown error", 500
+
+

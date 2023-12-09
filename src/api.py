@@ -40,7 +40,8 @@ def add_product_route():
             return jsonify({"response": "Missing required attribute"}), 400
         try:
             product_id = add_product(name, quantity, user_id)
-            return jsonify({"productId": product_id}), 201
+            headers = {'Location': f'/store/products/{product_id}'}
+            return jsonify({"productId": product_id}), 201, headers  # TODO: remove body
         except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 
@@ -107,7 +108,7 @@ def add_shopping_list_item_route():
         try:
             item_id = add_shopping_list_item(name, quantity, user_id)
             headers = {'Location': f'/cart/items/{item_id}'}
-            return ({"response": item_id}), 201, headers # TODO: remove body
+            return ({"response": item_id}), 201, headers  # TODO: remove body
         except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 

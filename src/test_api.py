@@ -133,17 +133,30 @@ def test_user_lists_only_own_products(user_tokens):
 
 
 # TODO: def test_updating_product quantity and name
+def test_update_product(user_token):
+    # given
+    product = some_product()
+    location = add_product(user_token, product)
+    # updated_product =
+
+    # when
+    response = (app.test_client()
+                .put(location, headers={'Authorization': user_token}, json=product))
+
+    # then
+    assert response.status_code == 200
+    # response.
+
+
 # TODO: def test_deleting_product
 
 def test_delete_product(user_token):
-    add_product_response = add_product(user_token, some_product())
-    body = json.loads(add_product_response.data.decode('utf-8'))
-    product_id = body['productId']
+    product_location = add_product(user_token, some_product())
 
     status_code, products_in_database_before_deletion = list_products(user_token)
     assert len(products_in_database_before_deletion) == 1
 
-    response = app.test_client().delete(f'/store/products/{product_id}', headers={'Authorization': user_token})
+    response = app.test_client().delete(product_location, headers={'Authorization': user_token})
     assert response.status_code == 200
 
     status_code, products_in_database_after_deletion = list_products(user_token)
@@ -343,6 +356,13 @@ def add_product(token, product):
     response = (app.test_client()
                 .post("/store/products/", headers={'Authorization': token}, json=product))
     assert response.status_code == 201
+    return response.headers['Location']
+
+# TODO: probably would be enough to use update_resource()
+def update_product(token, location, product):
+    response = (app.test_client()
+                .put(location, headers={'Authorization': token}, json=product))
+    assert response.status_code == 200
     return response
 
 

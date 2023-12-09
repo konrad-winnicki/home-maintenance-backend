@@ -1,15 +1,16 @@
 import json
+import os
 import random
 import re
 import string
 
 import pytest
 
-from session import create_session
 from services import generate_unique_id
-from src.api import app
-from src.db import execute_sql_query
-from src.persistence import insert_user, get_user_id
+from session import create_session
+from api import app
+from db import execute_sql_query
+from persistence import insert_user
 
 
 def delete_all_table_contents():
@@ -21,6 +22,11 @@ def delete_all_table_contents():
 @pytest.fixture(autouse=True)
 def clean_database():
     delete_all_table_contents()
+
+
+@pytest.fixture(autouse=True)
+def set_app_profile():
+    os.environ['APP_PROFILE'] = 'test'
 
 
 @pytest.fixture
@@ -144,18 +150,34 @@ def test_delete_product(user_token):
     assert len(products_in_database_after_deletion) == 0
 
 
+def test_delete_shopping_item(user_token):
+    add_shopping_item_response = add_shopping_item(user_token, some_product())
+    location = add_shopping_item_response
+
+    status_code, products_in_database_before_deletion = list_shopping_items(user_token)
+    assert len(products_in_database_before_deletion) == 1
+
+
+    response = app.test_client().delete(location, headers={'Authorization': user_token})
+    assert response.status_code == 200
+
+    status_code, products_in_database_after_deletion = list_products(user_token)
+    assert len(products_in_database_after_deletion) == 0
+
+
+
 def test_delete_product_fails_if_non_existing_id(user_token):
     add_product(user_token, some_product())
     status_code, products_in_database_before_deletion = list_products(user_token)
     assert len(products_in_database_before_deletion) == 1
 
     non_existing_id = '9797603a-6520-42f3-adba-c78988b8ff9f'
-    deletion_response = app.test_client().delete(f'/store/products/{non_existing_id}', headers={'Authorization': user_token})
+    deletion_response = app.test_client().delete(f'/store/products/{non_existing_id}',
+                                                 headers={'Authorization': user_token})
 
     assert deletion_response.status_code == 404
     status_code, products_in_database_after_deletion = list_products(user_token)
     assert len(products_in_database_after_deletion) == 1
-
 
 
 def test_adding_shopping_item(user_token):

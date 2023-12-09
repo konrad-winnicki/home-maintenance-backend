@@ -1,11 +1,5 @@
 .idea
 venv
 .venv
-.env_dev
-.env_test
-3tabele.txt
-ostatni.txt
-pierwszysql.txt
-.sessions
-sessions/
-__pycache__
+.env.*
+**/.pytest_cache

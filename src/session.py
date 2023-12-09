@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 
 import jwt
-from decouple import config
+from config import config
 from flask import request
 
 from errors import InvalidSessionCode, NoSessionCode

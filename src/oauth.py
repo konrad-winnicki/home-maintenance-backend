@@ -2,7 +2,7 @@ import json
 
 import jwt
 import requests
-from decouple import config
+from config import config
 from flask import request, redirect
 from oauthlib.oauth2 import WebApplicationClient
 

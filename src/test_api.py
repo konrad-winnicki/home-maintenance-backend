@@ -172,8 +172,7 @@ def test_delete_product(user_token):
 
 
 def test_delete_shopping_item(user_token):
-    add_shopping_item_response = add_shopping_item(user_token, some_product())
-    location = add_shopping_item_response
+    location = add_shopping_item(user_token, some_product())
 
     status_code, products_in_database_before_deletion = list_shopping_items(user_token)
     assert len(products_in_database_before_deletion) == 1
@@ -200,6 +199,20 @@ def test_delete_product_fails_if_non_existing_id(user_token):
     status_code, products_in_database_after_deletion = list_products(user_token)
     assert len(products_in_database_after_deletion) == 1
 
+
+
+def test_delete_shoping_item_fails_if_non_existing_id(user_token):
+    add_shopping_item(user_token, some_product())
+    status_code, products_in_database_before_deletion = list_shopping_items(user_token)
+    assert len(products_in_database_before_deletion) == 1
+
+    non_existing_id = '9797603a-6520-42f3-adba-c78988b8ff9f'
+    deletion_response = app.test_client().delete(f'/cart/items/{non_existing_id}',
+                                                 headers={'Authorization': user_token})
+
+    assert deletion_response.status_code == 404
+    status_code, shopping_items_in_database_after_deletion = list_shopping_items(user_token)
+    assert len(shopping_items_in_database_after_deletion) == 1
 
 def test_adding_shopping_item(user_token):
     # given

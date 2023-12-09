@@ -41,6 +41,14 @@ def get_shopping_list_items(user_id):
                                           "checkout": row["is_bought"]})
 
 
+def get_shopping_item_by_id(item_id, user_id):
+    query_sql = "select * from shopping_list_items where id=%s and user_id=%s"
+    fetch_result = execute_fetch(query_sql, [item_id, user_id])
+    if fetch_result:
+        return {"name": fetch_result.get('name'), "quantity": fetch_result.get('quantity')}
+    return None
+
+
 def get_bought_shopping_items(user_id):
     query_sql = "select id, name, quantity from shopping_list_items where user_id=%s and is_bought = true"
     return execute_fetch_all(query_sql, [user_id],
@@ -70,14 +78,19 @@ def get_product_by_id(product_id, user_id):
     return None
 
 def delete_product(product_id, user_id):
-    product_existing = get_product_by_id(product_id, user_id)
-    if not product_existing:
+    exists_product = get_product_by_id(product_id, user_id)
+    if not exists_product:
         raise ResourceNotExists
 
     query_sql = "DELETE FROM products WHERE id=%s and user_id=%s"
     execute_sql_query(query_sql, [product_id, user_id])
 
+
 def delete_shopping_list_item(item_id, user_id):
+    exists_shopping_item = get_shopping_item_by_id(item_id, user_id)
+    if not exists_shopping_item:
+        raise ResourceNotExists
+
     query_sql = "DELETE FROM shopping_list_items WHERE id=%s and user_id=%s"
     execute_sql_query(query_sql, [item_id, user_id])
 

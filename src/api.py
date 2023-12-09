@@ -27,6 +27,9 @@ def get_products_route():
         return get_products(user_id)
     except (InvalidSessionCode, NoSessionCode):
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/store/products/", methods=["POST"])
@@ -47,6 +50,9 @@ def add_product_route():
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/store/products/<id>", methods=["PUT"])
@@ -70,6 +76,9 @@ def update_product_route(id):
         return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/store/products/<id>", methods=["DELETE"])
@@ -86,13 +95,14 @@ def delete_product_route(id):
             return jsonify({"response": "DatabaseError"}), 500
         except ResourceNotExists:
             return jsonify({"response": f'Product with id {product_id} not exists'}), 404
-        except Exception as e:
-            print(e)
-            return "Unknown error", 500
+
         return jsonify({"response": "Product deleted from store positions"}), 200
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/cart/items/", methods=["POST"])
@@ -112,8 +122,12 @@ def add_shopping_list_item_route():
         except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
 
+
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/cart/items/", methods=["GET"])
@@ -123,6 +137,9 @@ def get_shopping_list_items_route():
         return get_shopping_list_items(user_id)
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 # TODO: move to POST /delivery
@@ -134,6 +151,9 @@ def add_bought_shopping_items_route():
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 # TODO: move to POST /transfers or /store/transfer
@@ -145,6 +165,9 @@ def add_missing_products_to_shopping_list_route():
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/cart/items/<id>", methods=["DELETE"])
@@ -158,9 +181,15 @@ def delete_shopping_list_item_route(id):
             delete_shopping_list_item(item_id, user_id)
         except DatabaseError:
             return "DatabaseError", 500
+        except ResourceNotExists:
+            return jsonify({"response": f'Item with id {item_id} not exists'}), 404
+
         return jsonify({"response": "Product deleted from shopping list"}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
 
 
 @app.route("/cart/items/<id>", methods=["PUT", "PATCH"])
@@ -186,3 +215,6 @@ def update_shopping_list_item_route(id):
         return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500

@@ -1,7 +1,7 @@
 import uuid
 
-from errors import ResourceAlreadyExists
-from persistence import get_bought_shopping_items
+from errors import ResourceAlreadyExists, ResourceNotExists
+from persistence import get_bought_shopping_items, insert_home, insert_to_home2
 from persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products
@@ -9,6 +9,21 @@ from persistence import get_product_by_name, insert_product, delete_shopping_lis
 
 def generate_unique_id():
     return uuid.uuid4().__str__()
+
+
+def add_home(name, user_id):
+    home_id = generate_unique_id()
+    insert_home(home_id, name)
+    insert_to_home2(home_id, user_id)
+    return home_id
+
+
+def assign_user_to_home(home_id, user_id):
+    existing_home = get_home_by_id(home_id)
+    if not existing_home:
+        raise ResourceNotExists
+    insert_to_home2(home_id, user_id)
+    return f'Assigned to home {home_id}'
 
 
 def add_bought_shopping_items(user_id):

@@ -7,7 +7,7 @@ from persistence import get_products, \
     update_product, delete_product, update_shopping_list_item
 from services import add_product, \
     ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
-    add_missing_products_to_shopping_list
+    add_missing_products_to_shopping_list, assign_user_to_home
 from session import authenticate_user
 from oauth import oauth2_code_callback
 
@@ -32,6 +32,24 @@ def add_home():
         home_id = add_home(name, user_id)
         headers = {'Location': f'/homes/{home_id}'}
         return 201, headers
+
+    except InvalidSessionCode or NoSessionCode:
+        return jsonify({"response": "non-authorized"}), 401
+    except Exception as e:
+        print(e)
+        return "Unknown error", 500
+
+@app.route("/homes/assign", methods=["POST"])
+def add_home():
+    try:
+        user_id = authenticate_user()
+        request_body = request.json
+        home_id = request_body.get('home_id')
+        if home_id is None:
+            return jsonify({"response": "Missing required attribute"}), 400
+
+        response = assign_user_to_home(home_id, user_id)
+        return jsonify({"response": response}), 200
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401

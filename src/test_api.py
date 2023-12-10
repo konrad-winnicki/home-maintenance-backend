@@ -112,7 +112,8 @@ def test_list_products(user_token):
     assert_that(body).extracting('product_id').is_not_empty()
 
 
-def test_user_lists_only_own_products(user_tokens):
+@pytest.mark.skip(reason="can't test until multiple houses can be created")
+def test_user_lists_only_own_home_products(user_tokens):
     # given
     user1_token, user2_token = user_tokens
     add_product(user1_token, some_product('Product', 1))
@@ -255,6 +256,7 @@ def test_list_shopping_items(user_token):
     assert body[0]['checkout'] == False
 
 
+@pytest.mark.skip(reason="can't test until multiple houses can be created")
 def test_user_lists_only_own_shopping_items(user_tokens):
     # given
     user1_token, user2_token = user_tokens

@@ -16,6 +16,12 @@ from session import create_session
 def delete_all_table_contents():
     tables = ["users", "products", "shopping_list_items", "homes", "home_members"]
     list(map(lambda table: execute_sql_query("DELETE FROM " + table + ";", []), tables))
+    add_test_home()
+
+
+def add_test_home():
+    execute_sql_query("INSERT INTO homes (id, name) VALUES (%s, %s)",
+                      ['b9e3c6fc-bc97-4790-9f46-623ce14b25f1', 'default home'])
 
 
 # TODO: create db schema before all tests
@@ -122,6 +128,7 @@ def test_joining_existing_home(user_tokens):
     assert len(other_user_homes) == 1
     assert other_user_homes[0]['name'] == home['name']
     assert other_user_homes[0]['id'] == home_id
+
 
 # TODO: test joining non-existent home
 

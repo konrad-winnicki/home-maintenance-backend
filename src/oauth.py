@@ -3,7 +3,7 @@ import json
 import jwt
 import requests
 from config import config
-from flask import request, redirect
+from flask import request, redirect, make_response
 from oauthlib.oauth2 import WebApplicationClient
 
 from persistence import get_user_id, insert_user
@@ -27,7 +27,11 @@ def oauth2_code_callback():
             user_id = generate_unique_id()
             insert_user(user_id, user_account_number)
         session_code = create_session(user_id)
-        return redirect('http://localhost:3000?session_code=' + session_code)
+
+        response = make_response(redirect('http://localhost:3000/login'))
+        response.set_cookie('session_code', session_code)
+
+        return response
 
 
 

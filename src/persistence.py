@@ -22,8 +22,14 @@ def insert_home(home_id, name):
     execute_sql_query(query_sql, [home_id, name])
 
 
-def insert_to_home2(home_id, user_id):
-    query_sql = "INSERT INTO homes2 (id, user_id) VALUES (%s, %s)"
+def get_homes(user_id):
+    query_sql = 'select id, name from homes h, home_members m where h.id = m.home_id and m.user_id=%s order by name'
+    return execute_fetch_all(query_sql, [user_id],
+                             lambda row: {"id": row["id"], "name": row["name"]})
+
+
+def insert_home_member(home_id, user_id):
+    query_sql = "INSERT INTO home_members (home_id, user_id) VALUES (%s, %s)"
     execute_sql_query(query_sql, [home_id, user_id])
 
 
@@ -78,13 +84,6 @@ def get_user_id(user_account_number):
     if fetch_result:
         user_id = fetch_result.get("id")
         return user_id
-
-def get_home_id(home_id):
-    query_sql = "select * from homes where id=%s"
-    fetch_result = execute_fetch(query_sql, [home_id])
-    if fetch_result:
-        home_id = fetch_result.get("id")
-        return home_id
 
 
 def get_product_by_name(name, user_context):

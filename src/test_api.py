@@ -1,22 +1,27 @@
 import json
 import os
 import random
-import re
 import string
 
 import pytest
 from assertpy import assert_that
 
-from services import generate_unique_id
-from session import create_session
 from api import app
 from db import execute_sql_query
 from persistence import insert_user
+from services import generate_unique_id
+from session import create_session
 
 
 def delete_all_table_contents():
-    tables = ["users", "products", "shopping_list_items"]
+    tables = ["users", "products", "shopping_list_items", "homes", "home_members"]
     list(map(lambda table: execute_sql_query("DELETE FROM " + table + ";", []), tables))
+    add_test_home()
+
+
+def add_test_home():
+    execute_sql_query("INSERT INTO homes (id, name) VALUES (%s, %s)",
+                      ['b9e3c6fc-bc97-4790-9f46-623ce14b25f1', 'default home'])
 
 
 # TODO: create db schema before all tests
@@ -56,6 +61,10 @@ def some_product(name=None, quantity=None):
         , 'quantity': quantity if quantity is not None else random_number()}
 
 
+def some_home(name=None):
+    return {'name': name if name is not None else random_string(10)}
+
+
 def some_shopping_item(name=None, quantity=None):
     return {'name': name if name is not None else random_string(10),
             'quantity': quantity if quantity is not None else random_number()}
@@ -65,6 +74,63 @@ def test_unauthenticated_access():
     response = app.test_client().get("/store/products/")
     assert response.status_code == 401
 
+
+def test_adding_homes(user_token):
+    # given
+    home = some_home()
+
+    # when
+    response = (app.test_client()
+                .post("/homes", headers={'Authorization': user_token},
+                      json=home))
+
+    # then
+    assert response.status_code == 201
+    assert_that(response.location).matches(r'/homes/[0-9a-f]+')
+
+
+def test_list_homes(user_token):
+    # given
+    home1, home2 = [some_home(), some_home()]
+    add_home(user_token, home1)
+    add_home(user_token, home2)
+
+    # when
+    response = (app.test_client()
+                .get("/homes", headers={'Authorization': user_token}))
+
+    # then
+    assert response.status_code == 200
+    body = json.loads(response.data.decode('utf-8'))
+    assert len(body) == 2
+    assert_that(body).extracting('name').contains_only(home1['name'], home2['name'])
+    assert_that(body).extracting('id').is_not_empty()
+
+
+# TODO: invitation_code
+def test_joining_existing_home(user_tokens):
+    # given
+    home_owner, other_user = user_tokens
+    home = some_home()
+    add_home(home_owner, home)
+
+    # and
+    _, home_response = list_resources(home_owner, "/homes")
+    home_id = home_response[0]['id']
+
+    # when
+    response = (app.test_client()
+                .post(f"/homes/{home_id}/members", headers={'Authorization': other_user}))
+
+    # then
+    assert response.status_code == 204
+    _, other_user_homes = list_resources(other_user, "/homes")
+    assert len(other_user_homes) == 1
+    assert other_user_homes[0]['name'] == home['name']
+    assert other_user_homes[0]['id'] == home_id
+
+
+# TODO: test joining non-existent home
 
 def test_adding_products(user_token):
     response1 = (app.test_client()
@@ -187,7 +253,6 @@ def test_delete_product_fails_if_non_existing_id(user_token):
     assert len(products_in_database_after_deletion) == 1
 
 
-
 def test_delete_shoping_item_fails_if_non_existing_id(user_token):
     add_shopping_item(user_token, some_product())
     status_code, products_in_database_before_deletion = list_shopping_items(user_token)
@@ -201,6 +266,7 @@ def test_delete_shoping_item_fails_if_non_existing_id(user_token):
     status_code, shopping_items_in_database_after_deletion = list_shopping_items(user_token)
     assert len(shopping_items_in_database_after_deletion) == 1
 
+
 def test_adding_shopping_item(user_token):
     # given
     shopping_item = some_shopping_item()
@@ -213,7 +279,7 @@ def test_adding_shopping_item(user_token):
     assert response.status_code == 201
     location = response.headers['Location']
     assert location.startswith("/cart/items/")
-    assert re.match("/cart/items/[0-9a-f]+", location)
+    assert_that(location).matches(r'/cart/items/[0-9a-f]+')
     _, body = list_shopping_items(user_token)
     assert len(body) == 1
     assert body[0]['name'] == shopping_item['name']
@@ -236,6 +302,7 @@ def test_update_shopping_item(user_token):
     _, body = list_shopping_items(user_token)
     assert len(body) == 1
     assert_that(body[0]).is_equal_to(updated_shopping_item, ignore=['product_id'])
+
 
 def test_list_shopping_items(user_token):
     # given
@@ -383,6 +450,14 @@ def add_product(token, product):
                 .post("/store/products/", headers={'Authorization': token}, json=product))
     assert response.status_code == 201
     return response.headers['Location']
+
+
+def add_home(token, home):
+    response = (app.test_client()
+                .post("/homes", headers={'Authorization': token}, json=home))
+    assert response.status_code == 201
+    return response.headers['Location']
+
 
 def update_resource(token, location, resource):
     response = (app.test_client()

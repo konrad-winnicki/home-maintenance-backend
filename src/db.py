@@ -56,6 +56,7 @@ def execute_sql_query(query_sql, query_values):
             raise ResourceAlreadyExists
         except Error as err:
             print(err)
+            raise err
 
 
 def check_if_database_is_filled(table_schema):

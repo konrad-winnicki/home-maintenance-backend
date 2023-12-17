@@ -225,7 +225,7 @@ def test_update_shopping_item(user_token):
     product = some_shopping_item('Product', 1)
     location = add_shopping_item(user_token, product)
     updated_shopping_item = some_shopping_item('Updated name', 999)
-    updated_shopping_item['checkout'] = False
+    updated_shopping_item['is_bought'] = False
 
     # when
     response = (app.test_client()
@@ -253,7 +253,7 @@ def test_list_shopping_items(user_token):
     assert len(body) == 1
     assert body[0]['name'] == shopping_item['name']
     assert body[0]['quantity'] == shopping_item['quantity']
-    assert body[0]['checkout'] == False
+    assert body[0]['is_bought'] == False
 
 
 @pytest.mark.skip(reason="can't test until multiple houses can be created")
@@ -329,7 +329,7 @@ def test_adding_missing_products_to_prefilled_shopping_list(user_token):
     assert response.status_code == 201
     _, body = list_shopping_items(user_token)
     assert len(body) == 3
-    shopping_items = list(map(lambda b: (b['name'], b['quantity'], b['checkout']), body))
+    shopping_items = list(map(lambda b: (b['name'], b['quantity'], b['is_bought']), body))
 
     assert all(item in expected_shopping_items for item in shopping_items)
 
@@ -360,7 +360,7 @@ def test_adding_bought_shopping_items_to_products(user_token):
     existing_bought_item_location = add_shopping_item(user_token, existing_bought_item)
 
     # and marked as bought
-    new_bought_item['checkout'] = existing_bought_item['checkout'] = True
+    new_bought_item['is_bought'] = existing_bought_item['is_bought'] = True
     update_resource(user_token, new_bought_item_location, new_bought_item)
     update_resource(user_token, existing_bought_item_location, existing_bought_item)
 

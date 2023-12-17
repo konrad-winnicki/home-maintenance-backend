@@ -3,7 +3,7 @@ import uuid
 from errors import ResourceAlreadyExists, ResourceNotExists
 from persistence import get_bought_shopping_items, insert_home, insert_to_home2
 from persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
-    insert_shopping_list_item, update_product, \
+    insert_shopping_list_item,get_home_id, update_product, \
     get_missing_products
 
 
@@ -19,7 +19,7 @@ def add_home(name, user_id):
 
 
 def assign_user_to_home(home_id, user_id):
-    existing_home = get_home_by_id(home_id)
+    existing_home = get_home_id(home_id)
     if not existing_home:
         raise ResourceNotExists
     insert_to_home2(home_id, user_id)

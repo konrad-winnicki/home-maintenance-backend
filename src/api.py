@@ -248,7 +248,7 @@ def update_shopping_item_route(id):
         user_id = authenticate_user()
         user_context = (user_id, SOME_HOME_ID)
         request_data = request.json
-        is_bought = request_data.get("checkout")
+        is_bought = request_data.get("is_bought")
         quantity = request_data.get('quantity')
         name = request_data.get('name')
         item_id = id

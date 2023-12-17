@@ -53,7 +53,7 @@ def get_shopping_list_items(user_context):
     query_sql = "select id, name, quantity, is_bought from shopping_list_items where home_id=%s order by name"
     return execute_fetch_all(query_sql, [home_id],
                              lambda row: {"product_id": row["id"], "quantity": row["quantity"], "name": row["name"],
-                                          "checkout": row["is_bought"]})
+                                          "is_bought": row["is_bought"]})
 
 
 def get_shopping_item_by_id(item_id, user_context):
@@ -78,6 +78,13 @@ def get_user_id(user_account_number):
     if fetch_result:
         user_id = fetch_result.get("id")
         return user_id
+
+def get_home_id(home_id):
+    query_sql = "select * from homes where id=%s"
+    fetch_result = execute_fetch(query_sql, [home_id])
+    if fetch_result:
+        home_id = fetch_result.get("id")
+        return home_id
 
 
 def get_product_by_name(name, user_context):

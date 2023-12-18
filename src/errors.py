@@ -5,6 +5,8 @@ class Error(Exception):
 class DatabaseError(Error):
     pass
 
+class SocketHandShakeError(Error):
+    pass
 
 class ResourceAlreadyExists(Error):
     pass

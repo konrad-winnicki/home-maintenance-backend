@@ -28,7 +28,7 @@ def oauth2_code_callback():
             insert_user(user_id, user_account_number)
         session_code = create_session(user_id)
 
-        response = make_response(redirect('http://localhost:3000/login'))
+        response = make_response(redirect('http://localhost:3000/'))
         response.set_cookie('session_code', session_code)
 
         return response

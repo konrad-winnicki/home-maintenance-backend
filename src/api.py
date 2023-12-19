@@ -16,7 +16,7 @@ from errors import SocketHandShakeError
 from session import verify_session
 
 app = Flask('kitchen-maintenance')
-CORS(app)
+CORS(app, expose_headers=['Location'])
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 

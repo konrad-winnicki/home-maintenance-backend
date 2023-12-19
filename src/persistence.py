@@ -113,6 +113,17 @@ def delete_product(product_id, user_context):
     execute_sql_query(query_sql, [product_id, home_id])
 
 
+def delete_user_from_home(user_context):
+    user_id, home_id = user_context
+    #TODO: check if home and user exists
+   # exists_product = get_product_by_id(product_id, user_context)
+   # if not exists_product:
+        #raise ResourceNotExists
+    query_sql = "DELETE FROM home_members WHERE home_id=%s and user_id=%s"
+    execute_sql_query(query_sql, [home_id, user_id])
+
+
+
 def delete_shopping_list_item(item_id, user_context):
     _, home_id = user_context
     exists_shopping_item = get_shopping_item_by_id(item_id, user_context)

@@ -22,9 +22,11 @@ def assign_user_to_home(home_id, user_id):
     try:
         insert_home_member(home_id, user_id)
         # TODO:
-        # somebody is already a member of this house
+        # somebody is already a member of this house - zrobione
         # home not exists
         # user not exists
+    except ResourceAlreadyExists:
+        raise ResourceAlreadyExists
     except Exception as e:
         print("Couldn't add home member: " + e)
         raise ResourceNotExists

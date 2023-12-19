@@ -2,12 +2,16 @@ from db import create_schema
 
 
 def create_tables():
-    create_schema(
-        """
+    create_schema(table_schame + functions + triggers)
+
+
+
+table_schame =    """
 CREATE TABLE IF NOT EXISTS users
 (
     id                  UUID PRIMARY KEY,
-    user_account_number VARCHAR(128) UNIQUE
+    user_account_number VARCHAR(128) UNIQUE,
+    email               VARCHAR(128) UNIQUE
 );
 CREATE TABLE IF NOT EXISTS homes 
 (
@@ -47,7 +51,24 @@ CREATE TABLE IF NOT EXISTS barcodes
     barcode    VARCHAR(13) PRIMARY KEY
 );
 
+"""
 
-""")
-##DELETE FROM homes;
-#INSERT INTO homes (id, name) VALUES ('b9e3c6fc-bc97-4790-9f46-623ce14b25f1', 'default home')
+functions = """
+CREATE or REPLACE FUNCTION delete_home_if_last_member_deleted()
+RETURNS TRIGGER AS $delete_home$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM home_members WHERE home_id = OLD.home_id
+    ) THEN
+        DELETE FROM homes WHERE id = OLD.home_id;
+    END IF;
+    RETURN OLD;
+END;
+$delete_home$ LANGUAGE plpgsql;
+"""
+
+triggers = """
+CREATE OR REPLACE TRIGGER delete_home
+AFTER DELETE ON home_members
+FOR EACH ROW EXECUTE FUNCTION delete_home_if_last_member_deleted();
+"""

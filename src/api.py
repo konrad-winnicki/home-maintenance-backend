@@ -23,6 +23,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # TODO: remove when passed from requests
 SOME_HOME_ID = 'b9e3c6fc-bc97-4790-9f46-623ce14b25f1'
+#SOME_HOME_ID = 'd82fa28d-8be5-4faf-a437-d412f7132684'
+
 
 
 @app.route("/code/callback")
@@ -77,6 +79,8 @@ def add_home_member(home_id):
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceAlreadyExists:
+        return jsonify({"response": user_id + " belong to this home"}), 409
     except Exception as e:
         print(e)
         return "Unknown error", 500

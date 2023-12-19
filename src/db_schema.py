@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS barcodes
     id         UUID,
     barcode    VARCHAR(13) PRIMARY KEY
 );
+
 DELETE FROM homes;
 INSERT INTO homes (id, name) VALUES ('b9e3c6fc-bc97-4790-9f46-623ce14b25f1', 'default home')
+
 """)

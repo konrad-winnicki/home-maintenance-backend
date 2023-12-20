@@ -42,11 +42,9 @@ def add_home_route():
             return jsonify({"response": "Missing required attribute"}), 400
 
         home_id = add_home(name, user_id)
-        # headers = {'Location': f'/homes/{home_id}'} TODO
         response = make_response()
-        response.status_code = 201
         response.location = f'/homes/{home_id}'
-        return response
+        return response, 201
 
     # TODO: common exception handler
     except InvalidSessionCode or NoSessionCode:
@@ -105,11 +103,16 @@ def delete_home_member(homeId, id):
     except Exception as e:
         print(e)
         return "Unknown error", 500
-@app.route("/homes/<homeId>/store/products/", methods=["GET"])
-def get_products_route(homeId):
+
+
+PRODUCTS_URI = "/homes/<home_id>/store/products"
+PRODUCT_URI = f'{PRODUCTS_URI}/<product_id>'
+
+@app.route(PRODUCTS_URI, methods=["GET"])
+def get_products_route(home_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         return get_products(user_context)
     except (InvalidSessionCode, NoSessionCode):
         return jsonify({"response": "non-authorized"}), 401
@@ -118,11 +121,12 @@ def get_products_route(homeId):
         return "Unknown error", 500
 
 #TODO: in all endpoints check if user belongs to home
-@app.route("/homes/<homeId>/store/products/", methods=["POST"])
-def add_product_route(homeId):
+@app.route(PRODUCTS_URI, methods=["POST"])
+def add_product_route(home_id):
     try:
+        request_path = request.path
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
@@ -130,7 +134,7 @@ def add_product_route(homeId):
             return jsonify({"response": "Missing required attribute"}), 400
         try:
             product_id = add_product(name, quantity, user_context)
-            headers = {'Location': f'/store/products/{product_id}'}
+            headers = {'Location': f'{request_path}/{product_id}'}
             return jsonify({"productId": product_id}), 201, headers  # TODO: remove body
         except ResourceAlreadyExists:
             return jsonify({"response": name + " product already exist"}), 409
@@ -142,15 +146,14 @@ def add_product_route(homeId):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/store/products/<id>", methods=["PUT"])
-def update_product_route(homeId, id):
+@app.route(PRODUCT_URI, methods=["PUT"])
+def update_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         request_body = request.json
         quantity = request_body.get('quantity')
         name = request_body.get('name')
-        product_id = id
         if (product_id and name and quantity) is None:
             return jsonify({"response": "Missing required attributes and parameters"}), 400
         try:
@@ -169,12 +172,11 @@ def update_product_route(homeId, id):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/store/products/<id>", methods=["DELETE"])
-def delete_product_route(homeId, id):
+@app.route(PRODUCT_URI, methods=["DELETE"])
+def delete_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
-        product_id = id
+        user_context = (user_id, home_id)
         if product_id is None:
             return jsonify({"response": "Missing required parameter"}), 400
         try:
@@ -194,11 +196,11 @@ def delete_product_route(homeId, id):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/cart/items/", methods=["POST"])
-def add_shopping_list_item_route(homeId):
+@app.route("/homes/<home_id>/cart/items", methods=["POST"])
+def add_shopping_list_item_route(home_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
@@ -207,8 +209,8 @@ def add_shopping_list_item_route(homeId):
 
         try:
             item_id = add_shopping_list_item(name, quantity, user_context)
-            headers = {'Location': f'/cart/items/{item_id}'}
-            socketio.emit('updateShoppingItems', room=homeId)
+            headers = {'Location': f'{request.path}/{item_id}'}
+            socketio.emit('updateShoppingItems', room=home_id)
 
             return ({"response": item_id}), 201, headers  # TODO: remove body
         except ResourceAlreadyExists:
@@ -222,11 +224,11 @@ def add_shopping_list_item_route(homeId):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/cart/items/", methods=["GET"])
-def get_shopping_list_items_route(homeId):
+@app.route("/homes/<home_id>/cart/items", methods=["GET"])
+def get_shopping_list_items_route(home_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         return get_shopping_list_items(user_context)
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
@@ -236,13 +238,13 @@ def get_shopping_list_items_route(homeId):
 
 
 # TODO: move to POST /delivery
-@app.route("/homes/<homeId>/store/products/delivery/", methods=["POST"])
-def add_bought_shopping_items_route(homeId):
+@app.route("/homes/<home_id>/store/products/delivery", methods=["POST"])
+def add_bought_shopping_items_route(home_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         response = add_bought_shopping_items(user_context)
-        socketio.emit('updateShoppingItems', room=homeId)
+        socketio.emit('updateShoppingItems', room=home_id)
         return jsonify({"response": response}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
@@ -252,13 +254,13 @@ def add_bought_shopping_items_route(homeId):
 
 
 # TODO: move to POST /transfers or /store/transfer
-@app.route("/homes/<homeId>/cart/items/shoppinglist", methods=["POST"])
-def add_missing_products_to_shopping_list_route(homeId):
+@app.route("/homes/<home_id>/cart/items/shoppinglist", methods=["POST"])
+def add_missing_products_to_shopping_list_route(home_id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         response = add_missing_products_to_shopping_list(user_context)
-        socketio.emit('updateShoppingItems', room=homeId)
+        socketio.emit('updateShoppingItems', room=home_id)
 
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
@@ -268,11 +270,11 @@ def add_missing_products_to_shopping_list_route(homeId):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/cart/items/<id>", methods=["DELETE"])
-def delete_shopping_list_item_route(homeId, id):
+@app.route("/homes/<home_id>/cart/items/<id>", methods=["DELETE"])
+def delete_shopping_list_item_route(home_id, id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         item_id = id
         if item_id is None:
             return jsonify({"response": "Missing required attribute"}), 400
@@ -283,7 +285,7 @@ def delete_shopping_list_item_route(homeId, id):
         except ResourceNotExists:
             return jsonify({"response": f'Item with id {item_id} not exists'}), 404
 
-        socketio.emit('updateShoppingItems', room=homeId)
+        socketio.emit('updateShoppingItems', room=home_id)
         return jsonify({"response": "Product deleted from shopping list"}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
@@ -292,11 +294,11 @@ def delete_shopping_list_item_route(homeId, id):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/cart/items/<id>", methods=["PUT", "PATCH"])
-def update_shopping_item_route(homeId, id):
+@app.route("/homes/<home_id>/cart/items/<id>", methods=["PUT", "PATCH"])
+def update_shopping_item_route(home_id, id):
     try:
         user_id = authenticate_user()
-        user_context = (user_id, homeId)
+        user_context = (user_id, home_id)
         request_data = request.json
         is_bought = request_data.get("is_bought")
         quantity = request_data.get('quantity')
@@ -314,7 +316,7 @@ def update_shopping_item_route(homeId, id):
         except DatabaseError:
             return "500", 500
         print('itenupdate')
-        socketio.emit('updateShoppingItems', room=homeId)
+        socketio.emit('updateShoppingItems', room=home_id)
         return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401

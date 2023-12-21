@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS products
     name       VARCHAR(512),
     home_id    UUID,
     quantity   INTEGER,
+    CONSTRAINT quantity CHECK (quantity >= 0),
     CONSTRAINT products_unique_name UNIQUE (home_id, name),
     CONSTRAINT fk_products_home_id FOREIGN KEY (home_id) REFERENCES homes (id) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS shopping_list_items
     home_id    UUID,
     quantity   INTEGER,
     is_bought  BOOLEAN,
+    CONSTRAINT quantity CHECK (quantity >= 0),
     CONSTRAINT items_unique_name UNIQUE (home_id, name),
     CONSTRAINT fk_shopping_list_home_id FOREIGN KEY (home_id) REFERENCES homes (id) ON DELETE CASCADE ON UPDATE CASCADE
 );

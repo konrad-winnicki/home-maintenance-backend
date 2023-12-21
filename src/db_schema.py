@@ -1,4 +1,4 @@
-from db import create_schema
+from src.db import create_schema
 
 
 def create_tables():

@@ -2,18 +2,16 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_socketio import SocketIO, join_room
 
-from errors import SocketHandShakeError
-from errors import error_handler
-from oauth import oauth2_code_callback
-from persistence import get_products, \
+from src.errors import SocketHandShakeError, error_handler
+from src.oauth import oauth2_code_callback
+from src.persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
     update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home
-from services import add_product, \
+from src.services import add_product, \
     add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership
-from session import authenticate_user
-from session import verify_session
-from request_guard import request_guard
+from src.session import authenticate_user, verify_session
+from src.request_guard import request_guard
 
 app = Flask('kitchen-maintenance')
 CORS(app, expose_headers=['Location'])
@@ -253,6 +251,3 @@ def socket_connection(auth):
 @socketio.on('disconnect')
 def socket_disconnection():
     print('Client disconnected')
-
-
-

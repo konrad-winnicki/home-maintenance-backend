@@ -1,11 +1,9 @@
 import uuid
 
-from errors import ResourceAlreadyExists, ResourceNotExists
-from persistence import get_bought_shopping_items, insert_home, insert_home_member, \
-    user_membership
-from persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
+from src.errors import ResourceAlreadyExists, ResourceNotExists
+from src.persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
-    get_missing_products
+    get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership
 
 
 def generate_unique_id():

@@ -1,9 +1,7 @@
 import os
 
-from api import socketio
-from api import app
-from db_schema import create_tables
-
+from src.db_schema import create_tables
+from src.api import app
 
 create_tables()
 

@@ -2,13 +2,13 @@ import json
 
 import jwt
 import requests
-from config import config
 from flask import request, redirect, make_response
 from oauthlib.oauth2 import WebApplicationClient
 
-from persistence import get_user_id, insert_user
-from services import generate_unique_id
-from session import create_session
+from src.config import config
+from src.persistence import get_user_id, insert_user
+from src.services import generate_unique_id
+from src.session import create_session
 
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
@@ -30,7 +30,8 @@ def oauth2_code_callback():
         session_code = create_session(user_id)
 
         response = make_response(redirect('http://localhost:3000/'))
-        response.set_cookie('session_code', session_code)
+        # TODO: probably must be replace with passing by URL param
+        response.set_cookie('session_code', session_code, domain="localhost") # TODO: how about domain???
 
         return response
 
@@ -48,7 +49,7 @@ def get_token():
     token_url, headers, body = client.prepare_token_request(
         token_endpoint,
         authorization_response=request.url.replace("http", "https"),
-        redirect_url=request.base_url
+        redirect_url=request.base_url # TODO: https must be forced on prod
 
     )
 

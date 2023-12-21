@@ -1,10 +1,10 @@
 from datetime import datetime, timezone, timedelta
 
 import jwt
-from config import config
 from flask import request
 
-from errors import InvalidSessionCode, NoSessionCode
+from src.config import config
+from src.errors import InvalidSessionCode, NoSessionCode
 
 SECRET_KEY = config("SECRET_KEY", None)
 

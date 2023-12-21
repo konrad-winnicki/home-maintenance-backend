@@ -11,9 +11,9 @@ def insert_shopping_list_item(item_id, name, quantity, user_context):
     execute_sql_query(query_sql, [item_id, name, home_id, quantity, is_bought])
 
 
-def insert_user(user_id, user_account_number, user_email):
+def insert_user(user_id, account_number, email):
     query_sql = "INSERT INTO users VALUES (%s, %s, %s)"
-    execute_sql_query(query_sql, [user_id, user_account_number, user_email])
+    execute_sql_query(query_sql, [user_id, account_number, email])
     return user_id
 
 

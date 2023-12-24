@@ -10,7 +10,7 @@ from persistence import get_products, \
     update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home
 from services import add_product, \
     ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
-    add_missing_products_to_shopping_list, assign_user_to_home, add_home
+    add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership
 from session import authenticate_user
 from errors import SocketHandShakeError
 from session import verify_session
@@ -84,11 +84,12 @@ def add_home_member(home_id):
         return "Unknown error", 500
 
 
-@app.route("/homes/<homeId>/members/<id>", methods=["DELETE"])
-def delete_home_member(homeId, id):
+@app.route("/homes/<home_id>/members/<id>", methods=["DELETE"])
+def delete_home_member(home_id, id):
     try:
         authenticate_user()
-        user_context = (id, homeId)
+        check_membership(home_id, id)
+        user_context = (id, home_id)
         try:
             delete_user_from_home(user_context)
         except DatabaseError as e:
@@ -99,6 +100,8 @@ def delete_home_member(homeId, id):
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
 
     except Exception as e:
         print(e)
@@ -108,14 +111,19 @@ def delete_home_member(homeId, id):
 PRODUCTS_URI = "/homes/<home_id>/store/products"
 PRODUCT_URI = f'{PRODUCTS_URI}/<product_id>'
 
+
+
 @app.route(PRODUCTS_URI, methods=["GET"])
 def get_products_route(home_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         return get_products(user_context)
     except (InvalidSessionCode, NoSessionCode):
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -126,6 +134,7 @@ def add_product_route(home_id):
     try:
         request_path = request.path
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         request_body = request.json
         name = request_body.get('name')
@@ -141,6 +150,8 @@ def add_product_route(home_id):
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -150,6 +161,7 @@ def add_product_route(home_id):
 def update_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         request_body = request.json
         quantity = request_body.get('quantity')
@@ -167,6 +179,8 @@ def update_product_route(home_id, product_id):
         return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -176,6 +190,8 @@ def update_product_route(home_id, product_id):
 def delete_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
+
         user_context = (user_id, home_id)
         if product_id is None:
             return jsonify({"response": "Missing required parameter"}), 400
@@ -191,6 +207,8 @@ def delete_product_route(home_id, product_id):
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -200,6 +218,7 @@ def delete_product_route(home_id, product_id):
 def add_shopping_list_item_route(home_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         request_body = request.json
         name = request_body.get('name')
@@ -219,6 +238,8 @@ def add_shopping_list_item_route(home_id):
 
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -228,10 +249,14 @@ def add_shopping_list_item_route(home_id):
 def get_shopping_list_items_route(home_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
+
         user_context = (user_id, home_id)
         return get_shopping_list_items(user_context)
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -242,12 +267,15 @@ def get_shopping_list_items_route(home_id):
 def add_bought_shopping_items_route(home_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         response = add_bought_shopping_items(user_context)
         socketio.emit('updateShoppingItems', room=home_id)
         return jsonify({"response": response}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -258,6 +286,7 @@ def add_bought_shopping_items_route(home_id):
 def add_missing_products_to_shopping_list_route(home_id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         response = add_missing_products_to_shopping_list(user_context)
         socketio.emit('updateShoppingItems', room=home_id)
@@ -265,6 +294,8 @@ def add_missing_products_to_shopping_list_route(home_id):
         return jsonify({"response": response}), 201
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -274,6 +305,7 @@ def add_missing_products_to_shopping_list_route(home_id):
 def delete_shopping_list_item_route(home_id, id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, id)
         user_context = (user_id, home_id)
         item_id = id
         if item_id is None:
@@ -289,6 +321,8 @@ def delete_shopping_list_item_route(home_id, id):
         return jsonify({"response": "Product deleted from shopping list"}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500
@@ -298,6 +332,7 @@ def delete_shopping_list_item_route(home_id, id):
 def update_shopping_item_route(home_id, id):
     try:
         user_id = authenticate_user()
+        check_membership(home_id, id)
         user_context = (user_id, home_id)
         request_data = request.json
         is_bought = request_data.get("is_bought")
@@ -320,6 +355,8 @@ def update_shopping_item_route(home_id, id):
         return jsonify({"response": result}), 200
     except InvalidSessionCode or NoSessionCode:
         return jsonify({"response": "non-authorized"}), 401
+    except ResourceNotExists:
+        return jsonify({"response": "User does not belong to this home"}), 404
     except Exception as e:
         print(e)
         return "Unknown error", 500

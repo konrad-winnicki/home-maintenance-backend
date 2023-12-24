@@ -1,7 +1,8 @@
 import uuid
 
 from errors import ResourceAlreadyExists, ResourceNotExists
-from persistence import get_bought_shopping_items, insert_home, insert_home_member
+from persistence import get_bought_shopping_items, insert_home, insert_home_member, \
+    user_membership
 from persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products
@@ -9,6 +10,11 @@ from persistence import get_product_by_name, insert_product, delete_shopping_lis
 
 def generate_unique_id():
     return uuid.uuid4().__str__()
+
+
+def check_membership(home_id, user_id):
+    if not user_membership(home_id, user_id):
+        raise ResourceNotExists
 
 
 def add_home(name, user_id):

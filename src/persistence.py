@@ -53,6 +53,12 @@ def get_missing_products(user_context):
     return execute_fetch_all(query_sql, [home_id],
                              lambda row: {"product_id": row["id"], "name": row["name"]})
 
+def user_membership(home_id, user_id):
+    query_sql = "SELECT EXISTS (SELECT 1 FROM home_members WHERE home_id=%s and user_id=%s)"
+    result =  execute_fetch(query_sql, [home_id, user_id])
+    return result['exists']
+
+
 
 def get_shopping_list_items(user_context):
     _, home_id = user_context

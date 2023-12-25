@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from request_guard import request_guard
-from errors import BadRequest
+from src.request_guard import request_guard
+from src.errors import BadRequest
 
 
 @pytest.fixture(autouse=True)

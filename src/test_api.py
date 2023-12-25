@@ -138,8 +138,8 @@ def test_home_membership(user_token):
     # given
     home_location = add_home(user_token, some_home())
     non_existing_home_id = 'b9e3c6fc-bc97-4790-9f46-623ce14b2fff'
-    products_endpoint_with_existing_home_id = f'{home_location}/store/products'
 
+    products_endpoint_with_existing_home_id = f'{home_location}/store/products'
     products_endpoint_with_non_existing_home_id = f'homes/{non_existing_home_id}/store/products'
 
     # when
@@ -154,7 +154,7 @@ def test_home_membership(user_token):
 
     assert response1.status_code == 201
     assert response2.status_code == 404
-    assert response2.json == {'response': 'User does not belong to this home'}
+    assert response2.json == {'response': 'resource does not exist'}
 
 
 

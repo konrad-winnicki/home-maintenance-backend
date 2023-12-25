@@ -38,7 +38,7 @@ def add_home_route():
         user_id = authenticate_user()
         request_body = request.json
 
-        expected_req_body = {'name': str, 'email': str}
+        expected_req_body = {'name': str}
         request_guard(request_body, expected_req_body)
 
         name = request_body.get('name')

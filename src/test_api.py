@@ -62,8 +62,7 @@ def some_product(name=None, quantity=None):
 
 
 def some_home(name=None, email=None):
-    return {'name': name if name is not None else random_string(10),
-            'email': email if email is not None else random_string(10) + "@domain.test"}
+    return {'name': name if name is not None else random_string(10)}
 
 
 def some_shopping_item(name=None, quantity=None):

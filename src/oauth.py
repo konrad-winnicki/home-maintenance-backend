@@ -14,6 +14,8 @@ GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
+FRONTENT_REDIRECT_URI = 'http://home-maintenace:3000'
+# FRONTENT_REDIRECT_URI = 'http://localhost:3000'
 
 
 def oauth2_code_callback():

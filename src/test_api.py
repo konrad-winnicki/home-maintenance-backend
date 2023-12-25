@@ -190,13 +190,14 @@ def test_adding_product_with_same_name_fails(user_token):
     # given
     home_location = add_home(user_token, some_home())
     product = some_product()
-    add_product(user_token, home_location, product)
-
+    r = add_product(user_token, home_location, product)
+    print('first r', r)
     # when
     response = (app.test_client()
                 .post(f'{home_location}/store/products', headers={'Authorization': user_token}, json=product))
 
     # then
+    print('response', response)
     assert response.status_code == 409
 
 

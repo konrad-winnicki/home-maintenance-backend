@@ -1,19 +1,19 @@
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_socketio import SocketIO, join_room
-from socketio import exceptions
 
-from errors import DatabaseError, NoSessionCode, InvalidSessionCode, ResourceNotExists, error_handler
+from errors import SocketHandShakeError
+from errors import error_handler
 from oauth import oauth2_code_callback
 from persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
     update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home
 from services import add_product, \
-    ResourceAlreadyExists, add_bought_shopping_items, add_shopping_list_item, \
+    add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership
 from session import authenticate_user
-from errors import SocketHandShakeError
 from session import verify_session
+from request_guard import request_guard
 
 app = Flask('kitchen-maintenance')
 CORS(app, expose_headers=['Location'])
@@ -37,10 +37,11 @@ def add_home_route():
     try:
         user_id = authenticate_user()
         request_body = request.json
-        name = request_body.get('name')
-        if name is None:
-            return jsonify({"response": "Missing required attribute"}), 400
 
+        expected_req_body = {'name': str, 'email': str}
+        request_guard(request_body, expected_req_body)
+
+        name = request_body.get('name')
         home_id = add_home(name, user_id)
         response = make_response()
         response.location = f'/homes/{home_id}'
@@ -109,15 +110,19 @@ def get_products_route(home_id):
 @app.route(PRODUCTS_URI, methods=["POST"])
 def add_product_route(home_id):
     try:
+
+
         request_path = request.path
         user_id = authenticate_user()
+
+        request_body = request.json
+        expected_req_body = {'name': str, 'quantity': int}
+        request_guard(request_body, expected_req_body)
+
         check_membership(home_id, user_id)
         user_context = (user_id, home_id)
-        request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        if (name and quantity) is None:
-            return jsonify({"response": "Missing required attribute"}), 400
 
         product_id = add_product(name, quantity, user_context)
         headers = {'Location': f'{request_path}/{product_id}'}
@@ -133,13 +138,14 @@ def add_product_route(home_id):
 def update_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
+        request_body = request.json
+        expected_req_body = {'name': str, 'quantity': int}
+        request_guard(request_body, expected_req_body)
+
         check_membership(home_id, user_id)
         user_context = (user_id, home_id)
-        request_body = request.json
         quantity = request_body.get('quantity')
         name = request_body.get('name')
-        if (product_id and name and quantity) is None:
-            return jsonify({"response": "Missing required attributes and parameters"}), 400
 
         update_product(product_id, name, quantity, user_context)
         return jsonify({"response": 'product data updated'}), 200
@@ -152,10 +158,7 @@ def delete_product_route(home_id, product_id):
     try:
         user_id = authenticate_user()
         check_membership(home_id, user_id)
-
         user_context = (user_id, home_id)
-        if product_id is None:
-            return jsonify({"response": "Missing required parameter"}), 400
 
         delete_product(product_id, user_context)
         return jsonify({"response": "Product deleted from store positions"}), 200
@@ -170,13 +173,15 @@ def delete_product_route(home_id, product_id):
 def add_shopping_list_item_route(home_id):
     try:
         user_id = authenticate_user()
+        request_body = request.json
+
+        expected_req_body = {'name': str, 'quantity': int}
+        request_guard(request_body, expected_req_body)
+
         check_membership(home_id, user_id)
         user_context = (user_id, home_id)
-        request_body = request.json
         name = request_body.get('name')
         quantity = request_body.get('quantity')
-        if (name and quantity) is None:
-            return jsonify({"response": "Missing required attribute"}), 400
 
         item_id = add_shopping_list_item(name, quantity, user_context)
         headers = {'Location': f'{request.path}/{item_id}'}
@@ -236,15 +241,12 @@ def delete_shopping_list_item_route(home_id, id):
         check_membership(home_id, user_id)
         user_context = (user_id, home_id)
         item_id = id
-        if item_id is None:
-            return jsonify({"response": "Missing required attribute"}), 400
 
         delete_shopping_list_item(item_id, user_context)
         socketio.emit('updateShoppingItems', room=home_id)
         return jsonify({"response": "Product deleted from shopping list"}), 200
 
     except Exception as e:
-        print('ddddddd', Exception)
         return error_handler(e)
 
 
@@ -254,10 +256,13 @@ def update_shopping_item_route(home_id, id):
         user_id = authenticate_user()
         check_membership(home_id, user_id)
         user_context = (user_id, home_id)
-        request_data = request.json
-        is_bought = request_data.get("is_bought")
-        quantity = request_data.get('quantity')
-        name = request_data.get('name')
+        request_body = request.json
+        expected_req_body = {'name': str, 'quantity': int, 'is_bought': bool}
+        request_guard(request_body, expected_req_body)
+
+        is_bought = request_body.get("is_bought")
+        quantity = request_body.get('quantity')
+        name = request_body.get('name')
         item_id = id
         # FIXME: invalid use of or and None
         if (item_id and name and quantity and is_bought) is None:

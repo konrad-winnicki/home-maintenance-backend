@@ -2,7 +2,7 @@ import json
 
 import jwt
 import requests
-from flask import request, redirect, make_response
+from flask import request, jsonify
 from oauthlib.oauth2 import WebApplicationClient
 
 from src.config import config
@@ -14,8 +14,7 @@ GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
-FRONTENT_REDIRECT_URI = 'http://home-maintenace:3000'
-# FRONTENT_REDIRECT_URI = 'http://localhost:3000'
+FRONTEND_REDIRECT_URI = "http://localhost:3000/login"
 
 
 def oauth2_code_callback():
@@ -30,13 +29,7 @@ def oauth2_code_callback():
             user_id = generate_unique_id()
             insert_user(user_id, user_account_number, user_email)
         session_code = create_session(user_id)
-
-        response = make_response(redirect('http://localhost:3000/'))
-        # TODO: probably must be replace with passing by URL param
-        response.set_cookie('session_code', session_code, domain="localhost") # TODO: how about domain???
-
-        return response
-
+        return jsonify({"token": session_code}), 200
 
 
 def get_google_provider_cfg():
@@ -48,11 +41,13 @@ def get_token():
     token_endpoint = google_provider_cfg["token_endpoint"]
     print("request url in get token:", request.url)
     print("redirect url in get token: ", request.base_url)
+    auth_code_google_redirect = FRONTEND_REDIRECT_URI + "?" + request.query_string.decode();
+    print("auth_code_google_redirect: ", auth_code_google_redirect)
     token_url, headers, body = client.prepare_token_request(
         token_endpoint,
-        authorization_response=request.url.replace("http", "https"),
-        redirect_url=request.base_url # TODO: https must be forced on prod
-
+        # http is changed to https to prevent bug in the oauth library which enforces https event for localhost
+        authorization_response=auth_code_google_redirect.replace("http", "https"),
+        redirect_url=FRONTEND_REDIRECT_URI
     )
 
     print("GetTokenRequest Url:", token_url)
@@ -66,17 +61,3 @@ def get_token():
     )
 
     return client.parse_request_body_response(json.dumps(token_response.json()))
-
-
-def get_user_info():
-    google_provider_cfg = get_google_provider_cfg()
-    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
-    uri, headers, body = client.add_token(userinfo_endpoint)
-    print('user info', headers)
-    userinfo_response = requests.get(uri, headers=headers, data=body)
-    if userinfo_response.json().get("email_verified"):
-        unique_id = userinfo_response.json()["sub"]
-        return unique_id
-    else:
-        return "denied"
-

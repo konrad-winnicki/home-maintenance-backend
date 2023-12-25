@@ -7,29 +7,24 @@ from src.oauth import oauth2_code_callback
 from src.persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
     update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home
+from src.request_guard import request_guard
 from src.services import add_product, \
     add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership
 from src.session import authenticate_user, verify_session
-from src.request_guard import request_guard
 
 app = Flask('kitchen-maintenance')
 CORS(app, expose_headers=['Location'])
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-
-# TODO: remove when passed from requests
-SOME_HOME_ID = 'b9e3c6fc-bc97-4790-9f46-623ce14b25f1'
-#SOME_HOME_ID = 'd82fa28d-8be5-4faf-a437-d412f7132684'
-
-
 @app.errorhandler(Exception)
 def handle_error(Exception):
     return error_handler(Exception)
 
-@app.route("/code/callback")
-def oauth_callback():
+
+@app.route("/login", methods=["POST"])
+def login_callback():
     return oauth2_code_callback()
 
 
@@ -48,17 +43,14 @@ def add_home_route():
     return response, 201
 
 
-
 @app.route("/homes", methods=["GET"])
 def get_homes_route():
-
     user_id = authenticate_user()
     return get_homes(user_id)
 
 
 @app.route("/homes/<home_id>/members", methods=["POST"])
 def add_home_member(home_id):
-
     user_id = authenticate_user()
     assign_user_to_home(home_id, user_id)
     response = make_response()
@@ -68,7 +60,6 @@ def add_home_member(home_id):
 
 @app.route("/homes/<home_id>/members/<id>", methods=["DELETE"])
 def delete_home_member(home_id, id):
-
     authenticate_user()
     check_membership(home_id, id)
     user_context = (id, home_id)
@@ -81,20 +72,17 @@ PRODUCTS_URI = "/homes/<home_id>/store/products"
 PRODUCT_URI = f'{PRODUCTS_URI}/<product_id>'
 
 
-
 @app.route(PRODUCTS_URI, methods=["GET"])
 def get_products_route(home_id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     return get_products(user_context)
 
 
-#TODO: in all endpoints check if user belongs to home
+# TODO: in all endpoints check if user belongs to home
 @app.route(PRODUCTS_URI, methods=["POST"])
 def add_product_route(home_id):
-
     request_path = request.path
     user_id = authenticate_user()
 
@@ -112,11 +100,8 @@ def add_product_route(home_id):
     return jsonify({"productId": product_id}), 201, headers  # TODO: remove body
 
 
-
-
 @app.route(PRODUCT_URI, methods=["PUT"])
 def update_product_route(home_id, product_id):
-
     user_id = authenticate_user()
     request_body = request.json
     expected_req_body = {'name': str, 'quantity': int}
@@ -133,7 +118,6 @@ def update_product_route(home_id, product_id):
 
 @app.route(PRODUCT_URI, methods=["DELETE"])
 def delete_product_route(home_id, product_id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
@@ -142,10 +126,8 @@ def delete_product_route(home_id, product_id):
     return jsonify({"response": "Product deleted from store positions"}), 200
 
 
-
 @app.route("/homes/<home_id>/cart/items", methods=["POST"])
 def add_shopping_list_item_route(home_id):
-
     user_id = authenticate_user()
     request_body = request.json
 
@@ -163,20 +145,18 @@ def add_shopping_list_item_route(home_id):
     return ({"response": item_id}), 201, headers  # TODO: remove body
 
 
-
 @app.route("/homes/<home_id>/cart/items", methods=["GET"])
 def get_shopping_list_items_route(home_id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
 
     user_context = (user_id, home_id)
     return get_shopping_list_items(user_context)
 
+
 # TODO: move to POST /delivery
 @app.route("/homes/<home_id>/store/products/delivery", methods=["POST"])
 def add_bought_shopping_items_route(home_id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
@@ -188,7 +168,6 @@ def add_bought_shopping_items_route(home_id):
 # TODO: move to POST /transfers or /store/transfer
 @app.route("/homes/<home_id>/cart/items/shoppinglist", methods=["POST"])
 def add_missing_products_to_shopping_list_route(home_id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
@@ -200,7 +179,6 @@ def add_missing_products_to_shopping_list_route(home_id):
 
 @app.route("/homes/<home_id>/cart/items/<id>", methods=["DELETE"])
 def delete_shopping_list_item_route(home_id, id):
-
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
@@ -213,7 +191,6 @@ def delete_shopping_list_item_route(home_id, id):
 
 @app.route("/homes/<home_id>/cart/items/<id>", methods=["PUT", "PATCH"])
 def update_shopping_item_route(home_id, id):
-
     user_id = authenticate_user()
     user_context = (user_id, home_id)
     request_body = request.json
@@ -225,27 +202,24 @@ def update_shopping_item_route(home_id, id):
     quantity = request_body.get('quantity')
     name = request_body.get('name')
     item_id = id
-        # FIXME: invalid use of or and None
+    # FIXME: invalid use of or and None
 
     update_shopping_list_item(item_id, name, quantity, is_bought, user_context)
     socketio.emit('updateShoppingItems', room=home_id)
     return jsonify({"response": 'shopping list item updated'}), 200
 
 
-
-
 @socketio.on('connect')
 def socket_connection(auth):
-
     session_code = auth['session_code']
     home = auth['home_context']
-    if not session_code and home :
+    if not session_code and home:
         raise SocketHandShakeError
     verify_session(session_code)
     join_room(home)
     print('Socked connected')
 
-        #raise exceptions.AuthenticationError('Invalid token')
+    # raise exceptions.AuthenticationError('Invalid token')
 
 
 @socketio.on('disconnect')

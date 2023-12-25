@@ -1,4 +1,4 @@
-from errors import BadRequest
+from src.errors import BadRequest
 
 
 def request_guard(request_body, expected_attributes_types):

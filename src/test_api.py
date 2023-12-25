@@ -6,11 +6,11 @@ import string
 import pytest
 from assertpy import assert_that
 
-from api import app
-from db import execute_sql_query
-from persistence import insert_user
-from services import generate_unique_id
-from session import create_session
+from src.api import app
+from src.db import execute_sql_query
+from src.persistence import insert_user
+from src.services import generate_unique_id
+from src.session import create_session
 
 
 def delete_all_table_contents():
@@ -61,7 +61,7 @@ def some_product(name=None, quantity=None):
         , 'quantity': quantity if quantity is not None else random_number()}
 
 
-def some_home(name=None, email=None):
+def some_home(name=None):
     return {'name': name if name is not None else random_string(10)}
 
 

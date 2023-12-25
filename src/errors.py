@@ -1,5 +1,5 @@
-import socketio
 from flask import jsonify
+from socketio.exceptions import SocketIOError
 
 
 class Error(Exception):
@@ -54,7 +54,7 @@ def error_handler(exception):
         return jsonify({"response": "database error"}), 500
     elif isinstance(exception, SocketHandShakeError):
         print('Invalid token during socket handshake')
-    elif isinstance(exception, socketio.exceptions):
+    elif isinstance(exception, SocketIOError):
         print('Invalid token during socket handshake')
     elif isinstance(exception, Exception):
         print(exception)

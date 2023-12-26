@@ -6,7 +6,7 @@ from src.api import app
 create_tables()
 
 app_profile = os.getenv('APP_PROFILE')
-on_local_environment = app_profile == 'dev'
+on_local_environment = app_profile == 'local'
 if on_local_environment:
     print('Starting development server on local environment')
 

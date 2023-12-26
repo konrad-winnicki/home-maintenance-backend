@@ -14,7 +14,7 @@ GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", None)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", None)
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
-FRONTEND_REDIRECT_URI = "http://localhost:3000/login"
+FRONTEND_REDIRECT_URI = config("FRONTEND_REDIRECT_URI", None)
 
 
 def oauth2_code_callback():
@@ -46,7 +46,7 @@ def get_token():
     token_url, headers, body = client.prepare_token_request(
         token_endpoint,
         # http is changed to https to prevent bug in the oauth library which enforces https event for localhost
-        authorization_response=auth_code_google_redirect.replace("http", "https"),
+        authorization_response=auth_code_google_redirect.replace("http://localhost", "https://localhost"),
         redirect_url=FRONTEND_REDIRECT_URI
     )
 

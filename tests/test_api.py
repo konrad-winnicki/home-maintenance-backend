@@ -8,6 +8,7 @@ from assertpy import assert_that
 
 from src.api import app
 from src.db import execute_sql_query
+from src.db_schema import create_tables
 from src.persistence import insert_user
 from src.services import generate_unique_id
 from src.session import create_session
@@ -25,6 +26,12 @@ def add_test_home():
 
 
 # TODO: create db schema before all tests
+
+@pytest.fixture(scope='session', autouse=True)
+def create_db_schema():
+    create_tables()
+
+
 @pytest.fixture(autouse=True)
 def clean_database():
     delete_all_table_contents()

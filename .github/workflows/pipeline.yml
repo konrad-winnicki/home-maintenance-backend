@@ -19,7 +19,7 @@ jobs:
     environment: Home-Maintenance
     services:
       postgres:
-        image: postgres:11
+        image: postgres:16
         env:
           POSTGRES_USER: '${{secrets.POSTGRES_USER}}'
           POSTGRES_PASSWORD: '${{secrets.POSTGRES_PASSWORD}}'
@@ -51,11 +51,9 @@ jobs:
           echo "DB_PORT"="5432" >> .env.test
   
 
-
-
-      - name: Print .env file
+      - name: Print .env.test file
         run: |
-          echo "Printing .env:"
+          echo "Printing .env.test:"
           cat .env.test
      
 

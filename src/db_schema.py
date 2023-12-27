@@ -2,7 +2,7 @@ from src.db import create_schema
 
 
 def create_tables():
-    create_schema(table_schame)
+    create_schema(table_schame + functions + triggers)
 
 
 

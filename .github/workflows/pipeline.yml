@@ -3,11 +3,13 @@ name: Home-Maintenance
 on:
   push:
     branches:
-      - "test"
+      - "github_actions"
+      - "main"
 
   pull_request:
     branches:
-      - "test"
+      - "github_actions"
+      - "main"
 
 
 jobs:

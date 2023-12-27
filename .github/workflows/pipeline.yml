@@ -19,7 +19,7 @@ jobs:
     environment: Home-Maintenance
     services:
       postgres:
-        image: postgres:11
+        image: postgres:16
         env:
           POSTGRES_USER: '${{secrets.POSTGRES_USER}}'
           POSTGRES_PASSWORD: '${{secrets.POSTGRES_PASSWORD}}'

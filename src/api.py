@@ -17,7 +17,7 @@ from src.session import authenticate_user, verify_session
 app = Flask('kitchen-maintenance')
 CORS(app, expose_headers=['Location'])
 
-websocket_logs = 'true' == config('WEBSOCKET_LOGS')
+websocket_logs = config('WEBSOCKET_LOGS', default = False, cast = bool)
 socketio = SocketIO(app, cors_allowed_origins="*", engineio_logger = websocket_logs, logger = websocket_logs)
 
 @app.errorhandler(Exception)

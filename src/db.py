@@ -4,7 +4,7 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from src.errors import DatabaseError, ResourceAlreadyExists
+from src.errors import DatabaseError, ResourceAlreadyExists, DatabaseCheckViolation
 from src.config import config
 
 dbname = config('DB_NAME')
@@ -54,8 +54,11 @@ def execute_sql_query(query_sql, query_values):
             connection.execute(query_sql, query_values)
         except psycopg.errors.UniqueViolation:
             raise ResourceAlreadyExists
+        except psycopg.errors.CheckViolation as error:
+            error_message = error.__str__()
+            raise DatabaseCheckViolation(error_message)
         except Error as err:
-            print(err)
+            print('DatabaseError: ',err)
             raise err
 
 

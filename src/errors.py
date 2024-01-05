@@ -15,6 +15,10 @@ class SocketHandShakeError(Exception):
 class ResourceAlreadyExists(Exception):
     pass
 
+
+
+
+
 class ResourceNotExists(Exception):
     pass
 
@@ -25,6 +29,12 @@ class NoSessionCode(Exception):
 class BadRequest(Exception):
     def __init__(self, expected_attributes):
         self.message = "Request should contain object {}".format(expected_attributes)
+        super().__init__(self.message)
+    pass
+
+class DatabaseCheckViolation(Exception):
+    def __init__(self, message):
+        self.message = message
         super().__init__(self.message)
     pass
 
@@ -45,7 +55,7 @@ def error_handler(exception):
         return jsonify({"response": "resource already exists"}), 409
     elif isinstance(exception, BadRequest):
         print(exception)
-        return jsonify({"response": exception.message}), 400
+        return jsonify({"BadRequest": exception.message}), 400
     elif isinstance(exception, ResourceNotExists):
         print(exception)
         return jsonify({"response": "resource does not exist"}), 404
@@ -56,6 +66,9 @@ def error_handler(exception):
         print('Invalid token during socket handshake')
     elif isinstance(exception, SocketIOError):
         print('Invalid token during socket handshake')
+    elif isinstance(exception, DatabaseCheckViolation):
+        if "quantity" in exception.message:
+            return jsonify({"QuantityViolation": "quantity must be >= 0"}), 400
     elif isinstance(exception, Exception):
         print(exception)
         return "unknown error", 500

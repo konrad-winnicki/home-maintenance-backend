@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_socketio import SocketIO, join_room
 
+from src.config import config
 from src.errors import SocketHandShakeError, error_handler
 from src.oauth import oauth2_code_callback
 from src.persistence import get_products, \
@@ -16,12 +17,17 @@ from src.session import authenticate_user, verify_session
 app = Flask('kitchen-maintenance')
 CORS(app, expose_headers=['Location'])
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+websocket_logs = config('WEBSOCKET_LOGS', default = False, cast = bool)
+socketio = SocketIO(app, cors_allowed_origins="*", engineio_logger = websocket_logs, logger = websocket_logs)
 
 @app.errorhandler(Exception)
-def handle_error(Exception):
-    return error_handler(Exception)
+def handle_error(e):
+    return error_handler(e)
 
+@app.route("/", methods=["GET"])
+def handle_root_for_load_balancer():
+    response = make_response()
+    return response, 204
 
 @app.route("/login", methods=["POST"])
 def login_callback():

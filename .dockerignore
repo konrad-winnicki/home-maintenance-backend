@@ -1,2 +1,4 @@
 fly.toml
 .env.*
+!.env.docker
+venv

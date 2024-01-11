@@ -1,20 +1,13 @@
-FROM node:18-alpine
+FROM python:3.10-alpine
+RUN pip3 install --upgrade pip
 
-ENV MONGO_URI="mongodb://mongodb:27017"
-ENV NODE_ENV="development"
-ENV DATABASE_ENV='sql'
-ENV TEST_DATABASE='test'
-ENV DATABASE="dicegame"
-ENV PORT="5002"
-ENV SQL_URI='mysql://mysql'
-ENV MYSQL_USER='root'
-ENV MYSQL_PASSWORD='password'
-ENV HOST='mysql'
-ENV JWT_SECRET="5dd0aa20-a5c7-472c-b4aa-2d7716a5a654"
-WORKDIR /server
-COPY server/package*.json .
-RUN npm install
-COPY server/ .
-RUN npm run build
-EXPOSE 5002
-CMD npm run prod_sql
+WORKDIR /kitchen-maintenance-backend
+COPY requirements.txt .
+
+RUN pip3 install -r requirements.txt
+
+COPY . .
+EXPOSE 5000
+
+CMD APP_PROFILE=docker python3 -m src.main
+

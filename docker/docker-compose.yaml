@@ -12,6 +12,19 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=user
       - POSTGRES_DB=database
+    networks:
+      - mafalda
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile_backend
+    image: home-backend
+    container_name: home-backend
+    ports:
+      - "5000:5000"
+    networks:
+      - mafalda
 
 volumes:
   postgresData:

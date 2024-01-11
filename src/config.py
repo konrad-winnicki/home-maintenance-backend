@@ -3,7 +3,7 @@ import os
 from decouple import Config, RepositoryEnv
 
 app_profile = os.getenv('APP_PROFILE')
-allowed_profiles = ['local', 'dev', 'stage', 'prod', 'test']
+allowed_profiles = ['local', 'dev', 'stage', 'prod', 'test', 'docker']
 if app_profile not in allowed_profiles:
     raise RuntimeError("APP_PROFILE must have one of the following values: ", allowed_profiles)
 print(f"Starting application using profile {app_profile}")

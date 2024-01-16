@@ -119,6 +119,10 @@ def delete_product(product_id, user_context):
     execute_sql_query(query_sql, [product_id, home_id])
 
 
+def delete_account(user_id):
+    query_sql = "DELETE FROM users WHERE id=%s"
+    execute_sql_query(query_sql, [user_id])
+
 def delete_user_from_home(user_context):
     user_id, home_id = user_context
     #TODO: check if home and user exists

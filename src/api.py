@@ -7,7 +7,7 @@ from src.errors import SocketHandShakeError, error_handler
 from src.oauth import oauth2_code_callback
 from src.persistence import get_products, \
     get_shopping_list_items, delete_shopping_list_item, \
-    update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home
+    update_product, delete_product, update_shopping_list_item, get_homes, delete_user_from_home, delete_account
 from src.request_guard import request_guard
 from src.services import add_product, \
     add_bought_shopping_items, add_shopping_list_item, \
@@ -28,6 +28,13 @@ def handle_error(e):
 def handle_root_for_load_balancer():
     response = make_response()
     return response, 204
+
+@app.route("/users", methods=["DELETE"])
+def delete_account_route():
+    user_id = authenticate_user()
+    delete_account(user_id)
+    return jsonify({"response": "User deleted from store positions"}), 200
+
 
 @app.route("/login", methods=["POST"])
 def login_callback():

@@ -33,6 +33,21 @@ def insert_home_member(home_id, user_id):
     execute_sql_query(query_sql, [home_id, user_id])
 
 
+def insert_barcode(barcode_id, name, barcode, user_context):
+    _, home_id = user_context
+    query_sql = "INSERT INTO barcodes (id, name, barcode, home_id) VALUES (%s, %s, %s, %s)"
+    execute_sql_query(query_sql, [barcode_id, name, barcode, home_id])
+
+
+def get_name_by_barcode(barcode, user_context):
+    _, home_id = user_context
+    query_sql = "select * from barcodes where barcode=%s and home_id=%s"
+    fetch_result = execute_fetch(query_sql, [barcode, home_id])
+    if fetch_result:
+        return {"name": fetch_result.get('name')}
+    return None
+
+
 def insert_product(product_id, name, quantity, user_context):
     _, home_id = user_context
     query_sql = "INSERT INTO products (id, name, quantity, home_id) VALUES (%s, %s, %s, %s)"
@@ -107,6 +122,8 @@ def get_product_by_id(product_id, user_context):
     if fetch_result:
         return {"name": fetch_result.get('name'), "quantity": fetch_result.get('quantity')}
     return None
+
+
 
 
 def delete_product(product_id, user_context):

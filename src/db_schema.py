@@ -49,7 +49,13 @@ CREATE TABLE IF NOT EXISTS shopping_list_items
 CREATE TABLE IF NOT EXISTS barcodes
 (
     id         UUID,
-    barcode    VARCHAR(13) PRIMARY KEY
+    name       VARCHAR(512),
+    barcode    VARCHAR(13) PRIMARY KEY,
+    home_id    UUID,
+    CONSTRAINT barcodes_unique_name UNIQUE (home_id, name),
+    CONSTRAINT fk_barcodes_home_id FOREIGN KEY (home_id) REFERENCES homes (id) ON DELETE CASCADE ON UPDATE CASCADE
+
+
 );
 
 """

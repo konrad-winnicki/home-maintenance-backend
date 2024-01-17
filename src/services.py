@@ -3,7 +3,8 @@ import uuid
 from src.errors import ResourceAlreadyExists, ResourceNotExists
 from src.persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
-    get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership
+    get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership, \
+    get_name_by_barcode, insert_barcode
 
 
 def generate_unique_id():
@@ -72,6 +73,28 @@ def add_product(name, quantity, user_context):
 
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
+    return product_id
+
+def add_barcode(name, barcode, user_context):
+    try:
+        product_id = generate_unique_id()
+        insert_product(product_id, name, barcode, user_context)
+
+    except ResourceAlreadyExists:
+        raise ResourceAlreadyExists
+    return product_id
+
+def add_product_by_barcode (barcode, user_context):
+    name = get_name_by_barcode(barcode, user_context)
+    if not name:
+        raise ResourceNotExists
+    product = get_product_by_name(name, user_context)
+    if product:
+        raise ResourceAlreadyExists
+
+    product_id = generate_unique_id()
+    quantity = 1
+    insert_product(product_id, name, quantity, user_context)
     return product_id
 
 

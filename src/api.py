@@ -11,7 +11,8 @@ from src.persistence import get_products, \
 from src.request_guard import request_guard
 from src.services import add_product, \
     add_bought_shopping_items, add_shopping_list_item, \
-    add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership
+    add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership, add_barcode, \
+    add_product_by_barcode
 from src.session import authenticate_user, verify_session
 
 app = Flask('kitchen-maintenance')
@@ -84,6 +85,44 @@ def delete_home_member(home_id, id):
 PRODUCTS_URI = "/homes/<home_id>/store/products"
 PRODUCT_URI = f'{PRODUCTS_URI}/<product_id>'
 
+BARCODES_URI = "/homes/<home_id>/barcodes"
+
+
+
+@app.route(BARCODES_URI, methods=["POST"])
+def add_product_by_barcode_route(home_id):
+    request_path = request.path
+    user_id = authenticate_user()
+
+    request_body = request.json
+    expected_req_body = {'barcode': str}
+    request_guard(request_body, expected_req_body)
+
+    check_membership(home_id, user_id)
+    user_context = (user_id, home_id)
+    barcode = request_body.get('barcode')
+    product_id = add_product_by_barcode(barcode, user_context)
+
+    headers = {'Location': f'{request_path}/{product_id}'}
+    return jsonify({"barcodeId": product_id}), 201, headers
+@app.route(BARCODES_URI, methods=["POST"])
+def add_barcode_route(home_id):
+    request_path = request.path
+    user_id = authenticate_user()
+
+    request_body = request.json
+    expected_req_body = {'name': str, 'barcode': str}
+    request_guard(request_body, expected_req_body)
+
+    check_membership(home_id, user_id)
+    user_context = (user_id, home_id)
+    name = request_body.get('name')
+    barcode = request_body.get('barcode')
+
+    barcode_id = add_barcode(name, barcode, user_context)
+    headers = {'Location': f'{request_path}/{barcode_id}'}
+    return jsonify({"barcodeId": barcode_id}), 201, headers
+
 
 @app.route(PRODUCTS_URI, methods=["GET"])
 def get_products_route(home_id):
@@ -91,6 +130,8 @@ def get_products_route(home_id):
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     return get_products(user_context)
+
+
 
 
 # TODO: in all endpoints check if user belongs to home

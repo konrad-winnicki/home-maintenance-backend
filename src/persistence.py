@@ -44,7 +44,7 @@ def get_name_by_barcode(barcode, user_context):
     query_sql = "select * from barcodes where barcode=%s and home_id=%s"
     fetch_result = execute_fetch(query_sql, [barcode, home_id])
     if fetch_result:
-        return {"name": fetch_result.get('name')}
+        return fetch_result.get('name')
     return None
 
 
@@ -111,8 +111,10 @@ def get_product_by_name(name, user_context):
     _, home_id = user_context
     query_sql = "select * from products where name=%s and home_id=%s"
     fetch_result = execute_fetch(query_sql, [name, home_id])
+    print('BY NAME', fetch_result)
     if fetch_result:
         return {"id": fetch_result.get('id'), "quantity": fetch_result.get('quantity')}
+    return None
 
 
 def get_product_by_id(product_id, user_context):

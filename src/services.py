@@ -77,25 +77,34 @@ def add_product(name, quantity, user_context):
 
 def add_barcode(name, barcode, user_context):
     try:
-        product_id = generate_unique_id()
-        insert_product(product_id, name, barcode, user_context)
-
+        barcode_id = generate_unique_id()
+        insert_barcode(barcode_id, name, barcode, user_context)
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
-    return product_id
+    return barcode_id
 
-def add_product_by_barcode (barcode, user_context):
-    name = get_name_by_barcode(barcode, user_context)
-    if not name:
-        raise ResourceNotExists
+
+
+
+def modify_store(name, user_context):
     product = get_product_by_name(name, user_context)
     if product:
-        raise ResourceAlreadyExists
-
+        id = product.get("id")
+        quantity = product.get('quantity') + 1
+        update_product(id, name, quantity, user_context)
+        return {'response': 'updated', 'name': name, 'productId': id, 'quantity': quantity}
     product_id = generate_unique_id()
     quantity = 1
     insert_product(product_id, name, quantity, user_context)
-    return product_id
+    return {'response': 'added', 'name': name, 'productId': product_id, 'quantity': quantity}
+
+
+
+def modify_store_by_barcode (barcode, user_context):
+    name = get_name_by_barcode(barcode, user_context)
+    if not name:
+        raise ResourceNotExists
+    return modify_store(name, user_context)
 
 
 def add_missing_products_to_shopping_list(user_context):

@@ -12,7 +12,7 @@ from src.request_guard import request_guard
 from src.services import add_product, \
     add_bought_shopping_items, add_shopping_list_item, \
     add_missing_products_to_shopping_list, assign_user_to_home, add_home, check_membership, add_barcode, \
-    modify_store_by_barcode
+    modify_store_by_barcode, modify_shopings_by_barcode
 from src.session import authenticate_user, verify_session
 
 app = Flask('kitchen-maintenance')
@@ -108,9 +108,7 @@ def modify_store_by_barcode_route(home_id):
 @app.route(BARCODES_URI, methods=["POST"])
 def add_barcode_route(home_id):
     request_path = request.path
-
     user_id = authenticate_user()
-
     request_body = request.json
     expected_req_body = {'name': str, 'barcode': str}
     request_guard(request_body, expected_req_body)
@@ -199,6 +197,24 @@ def add_shopping_list_item_route(home_id):
     headers = {'Location': f'{request.path}/{item_id}'}
     socketio.emit('updateShoppingItems', room=home_id)
     return ({"response": item_id}), 201, headers  # TODO: remove body
+
+
+MODIFY_SHOPINGS_BY_BARCODE_URI = "/homes/<home_id>/cart/modify_cart"
+
+@app.route(MODIFY_SHOPINGS_BY_BARCODE_URI, methods=["POST"])
+def modify_shopings_by_barcode_route(home_id):
+    user_id = authenticate_user()
+
+    request_body = request.json
+    expected_req_body = {'barcode': str}
+    request_guard(request_body, expected_req_body)
+
+    check_membership(home_id, user_id)
+    user_context = (user_id, home_id)
+    barcode = request_body.get('barcode')
+    result = modify_shopings_by_barcode(barcode, user_context)
+    socketio.emit('updateShoppingItems', room=home_id)
+    return jsonify({}), 200
 
 
 @app.route("/homes/<home_id>/cart/items", methods=["GET"])

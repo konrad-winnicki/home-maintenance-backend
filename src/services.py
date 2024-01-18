@@ -4,7 +4,7 @@ from src.errors import ResourceAlreadyExists, ResourceNotExists
 from src.persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership, \
-    get_name_by_barcode, insert_barcode
+    get_name_by_barcode, insert_barcode, update_shopping_list_item, get_shopping_item_by_name
 
 
 def generate_unique_id():
@@ -105,6 +105,29 @@ def modify_store_by_barcode (barcode, user_context):
     if not name:
         raise ResourceNotExists
     return modify_store(name, user_context)
+
+
+def modify_shopings(name, user_context):
+    shopping_item = get_shopping_item_by_name(name, user_context)
+    print('modify', shopping_item)
+    if shopping_item:
+        id = shopping_item.get("id")
+        quantity = shopping_item.get('quantity')
+        name = shopping_item.get('name')
+        is_bought = True
+        update_shopping_list_item(id, name, quantity, is_bought, user_context)
+        return {'response': 'updated'}
+    shopping_id = generate_unique_id()
+    quantity = 1
+    insert_shopping_list_item(shopping_id, name, quantity, user_context)
+    return {'response': 'added'}
+
+
+def modify_shopings_by_barcode (barcode, user_context):
+    name = get_name_by_barcode(barcode, user_context)
+    if not name:
+        raise ResourceNotExists
+    return modify_shopings(name, user_context)
 
 
 def add_missing_products_to_shopping_list(user_context):

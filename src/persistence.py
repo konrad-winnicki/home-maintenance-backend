@@ -83,6 +83,15 @@ def get_shopping_list_items(user_context):
                                           "is_bought": row["is_bought"]})
 
 
+def get_shopping_item_by_name(name, user_context):
+    _, home_id = user_context
+    query_sql = "select * from shopping_list_items  where name=%s and home_id=%s"
+    fetch_result = execute_fetch(query_sql, [name, home_id])
+    print('BY NAME', fetch_result)
+    if fetch_result:
+        return {"id": fetch_result.get('id'),'name': fetch_result.get('name'), "quantity": fetch_result.get('quantity'), "is_bought": fetch_result.get('is_bought')}
+    return None
+
 def get_shopping_item_by_id(item_id, user_context):
     _, home_id = user_context
     query_sql = "select * from shopping_list_items where id=%s and home_id=%s"

@@ -52,10 +52,7 @@ CREATE TABLE IF NOT EXISTS barcodes
     name       VARCHAR(512),
     barcode    VARCHAR(13),
     home_id    UUID,
-    CONSTRAINT barcodes_unique_name UNIQUE (home_id, name),
     CONSTRAINT fk_barcodes_home_id FOREIGN KEY (home_id) REFERENCES homes (id) ON DELETE CASCADE ON UPDATE CASCADE
-
-
 );
 
 """

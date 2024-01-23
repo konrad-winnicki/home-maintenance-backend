@@ -214,7 +214,7 @@ def modify_shopings_by_barcode_route(home_id):
     barcode = request_body.get('barcode')
     result = modify_shopings_by_barcode(barcode, user_context)
     socketio.emit('updateShoppingItems', room=home_id)
-    return jsonify({}), 200
+    return jsonify(result), 200
 
 
 @app.route("/homes/<home_id>/cart/items", methods=["GET"])

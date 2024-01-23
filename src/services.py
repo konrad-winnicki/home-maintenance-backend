@@ -119,11 +119,12 @@ def modify_shopings(name, user_context):
         name = shopping_item.get('name')
         is_bought = True
         update_shopping_list_item(id, name, quantity, is_bought, user_context)
-        return {'response': 'updated'}
+        return {'response': 'updated', 'name': name}
+
     shopping_id = generate_unique_id()
     quantity = 1
     insert_shopping_list_item(shopping_id, name, quantity, user_context)
-    return {'response': 'added'}
+    return {'response': 'added', 'name': name}
 
 
 def modify_shopings_by_barcode (barcode, user_context):

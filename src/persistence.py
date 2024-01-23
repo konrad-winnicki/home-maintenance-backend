@@ -126,6 +126,16 @@ def get_product_by_name(name, user_context):
     return None
 
 
+def get_home_by_name(name, user_id):
+    query_sql = ("select * from homes INNER JOIN home_members ON home_members.home_id = homes.id where "
+                 "homes.name=%s and home_members.user_id=%s")
+    fetch_result = execute_fetch(query_sql, [name, user_id])
+    print('BY NAME', fetch_result)
+    if fetch_result:
+        return {"id": fetch_result.get('id'), "name": fetch_result.get('name')}
+    return None
+
+
 def get_product_by_id(product_id, user_context):
     _, home_id = user_context
     query_sql = "select * from products where id=%s and home_id=%s"

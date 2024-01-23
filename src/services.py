@@ -4,7 +4,7 @@ from src.errors import ResourceAlreadyExists, ResourceNotExists
 from src.persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership, \
-    get_name_by_barcode, insert_barcode, update_shopping_list_item, get_shopping_item_by_name
+    get_name_by_barcode, insert_barcode, update_shopping_list_item, get_shopping_item_by_name, get_home_by_name
 
 
 def generate_unique_id():
@@ -17,6 +17,9 @@ def check_membership(home_id, user_id):
 
 
 def add_home(name, user_id):
+    existing_home = get_home_by_name(name, user_id)
+    if existing_home:
+        raise ResourceAlreadyExists
     home_id = generate_unique_id()
     insert_home(home_id, name)
     insert_home_member(home_id, user_id)

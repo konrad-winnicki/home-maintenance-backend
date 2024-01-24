@@ -56,7 +56,7 @@ def insert_product(product_id, name, quantity, user_context):
 
 def get_products(user_context):
     _, home_id = user_context
-    query_sql = 'select id, name, quantity from products where home_id=%s order by products.name'
+    query_sql = 'select id, name, quantity from products where home_id=%s order by quantity!=0, name'
     return execute_fetch_all(query_sql, [home_id],
                              lambda row: {"product_id": row["id"], "quantity": row["quantity"],
                                           "name": row["name"]})

@@ -1,4 +1,4 @@
-from src.db import execute_fetch_all, execute_sql_query, execute_fetch
+from src.db import execute_fetch_all, execute_sql_query, execute_fetch, execute_sql_transaction
 from src.errors import ResourceNotExists
 
 
@@ -184,11 +184,21 @@ def delete_shopping_list_item(item_id, user_context):
 
 def update_product(product_id, name, quantity, user_context):
     _, home_id = user_context
-    query_sql = "update products SET name=%s, quantity=%s where id=%s and home_id=%s"
-    execute_sql_query(query_sql, [name, quantity, product_id, home_id])
+    update_barcodes_query = "update barcodes set name=%s where name = (SELECT name FROM products WHERE id=%s and home_id=%s) and home_id=%s"
+    update_barcodes_values = [name, product_id, home_id, home_id]
+    update_products_query = "update products SET name=%s, quantity=%s where id=%s and home_id=%s"
+    update_products_values = [name, quantity, product_id, home_id]
+    queries = [(update_barcodes_query, update_barcodes_values), (update_products_query, update_products_values)]
+    execute_sql_transaction(queries)
+
 
 
 def update_shopping_list_item(item_id, name, quantity, is_bought, user_context):
     _, home_id = user_context
-    query_sql = "update shopping_list_items SET name=%s, quantity=%s, is_bought=%s where id=%s and home_id=%s"
-    execute_sql_query(query_sql, [name, quantity, is_bought, item_id, home_id])
+    update_barcodes_query = "update barcodes set name=%s where name = (SELECT name FROM shopping_list_items WHERE id=%s and home_id=%s)"
+    update_barcodes_values = [name, item_id, home_id]
+    update_shoping_item_query = "update shopping_list_items SET name=%s, quantity=%s, is_bought=%s where id=%s and home_id=%s"
+    update_shiping_item_values = [name, quantity, is_bought, item_id, home_id]
+    queries = [(update_barcodes_query, update_barcodes_values), (update_shoping_item_query, update_shiping_item_values)]
+    execute_sql_transaction(queries)
+

@@ -62,6 +62,31 @@ def execute_sql_query(query_sql, query_values):
             raise err
 
 
+
+def execute_sql_transaction(queries):
+    with pool.connection() as connection:
+        cur = connection.cursor()
+        try:
+
+           # cur.executemany(None, queries)
+
+            #connection.commit()
+
+            for query in queries:
+                query_sql, query_values = query
+                cur.execute(query_sql, query_values)
+        except psycopg.errors.UniqueViolation:
+            raise ResourceAlreadyExists
+        except psycopg.errors.CheckViolation as error:
+            error_message = error.__str__()
+            raise DatabaseCheckViolation(error_message)
+        except Error as err:
+            print('DatabaseError: ',err)
+            raise err
+
+
+
+
 def check_if_database_is_filled(table_schema):
     query_sql = "select table_name from information_schema.tables where table_schema=%s"
     fetch_result = execute_fetch(query_sql, (table_schema,))

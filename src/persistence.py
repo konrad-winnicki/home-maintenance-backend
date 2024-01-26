@@ -33,31 +33,32 @@ def insert_home_member(home_id, user_id):
     execute_sql_query(query_sql, [home_id, user_id])
 
 
-def insert_barcode(barcode_id, name, barcode, user_context):
+def insert_barcode(barcode_id, name, barcode, category, user_context):
     _, home_id = user_context
-    query_sql = "INSERT INTO barcodes (id, name, barcode, home_id) VALUES (%s, %s, %s, %s)"
-    execute_sql_query(query_sql, [barcode_id, name, barcode, home_id])
+    query_sql = "INSERT INTO barcodes (id, name, barcode, category, home_id) VALUES (%s, %s,%s, %s, %s)"
+    execute_sql_query(query_sql, [barcode_id, name, barcode, category, home_id])
 
 
-def get_name_by_barcode(barcode, user_context):
+def get_barcode_details(barcode, user_context):
     _, home_id = user_context
     query_sql = "select * from barcodes where barcode=%s and home_id=%s"
     fetch_result = execute_fetch(query_sql, [barcode, home_id])
     if fetch_result:
-        return fetch_result.get('name')
+        return {"name": fetch_result.get('category'), 'name': fetch_result.get('name')}
+
     return None
 
 
-def insert_product(product_id, name, quantity, user_context):
+def insert_product(product_id, name, quantity, category, user_context):
     _, home_id = user_context
-    query_sql = "INSERT INTO products (id, name, quantity, home_id) VALUES (%s, %s, %s, %s)"
-    execute_sql_query(query_sql, [product_id, name, quantity, home_id])
+    query_sql = "INSERT INTO products (id, name, quantity, category, home_id) VALUES (%s, %s, %s, %s, %s)"
+    execute_sql_query(query_sql, [product_id, name, quantity, category, home_id])
 
 
-def get_products(user_context):
+def get_products(user_context, category):
     _, home_id = user_context
-    query_sql = 'select id, name, quantity from products where home_id=%s order by quantity!=0, name'
-    return execute_fetch_all(query_sql, [home_id],
+    query_sql = 'select id, name, quantity from products where home_id=%s and category=%s order by quantity!=0, name'
+    return execute_fetch_all(query_sql, [home_id, category],
                              lambda row: {"product_id": row["id"], "quantity": row["quantity"],
                                           "name": row["name"]})
 
@@ -122,7 +123,7 @@ def get_product_by_name(name, user_context):
     fetch_result = execute_fetch(query_sql, [name, home_id])
     print('BY NAME', fetch_result)
     if fetch_result:
-        return {"id": fetch_result.get('id'), "quantity": fetch_result.get('quantity')}
+        return {"id": fetch_result.get('id'), "quantity": fetch_result.get('quantity'), "category": fetch_result.get('category')}
     return None
 
 

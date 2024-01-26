@@ -82,6 +82,7 @@ def delete_home_member(home_id, id):
     return jsonify({"response": "User deleted from home"}), 200
 
 
+GET_PRODUCTS_URI = "/homes/<home_id>/store/<category>/products"
 PRODUCTS_URI = "/homes/<home_id>/store/products"
 PRODUCT_URI = f'{PRODUCTS_URI}/<product_id>'
 
@@ -110,26 +111,27 @@ def add_barcode_route(home_id):
     request_path = request.path
     user_id = authenticate_user()
     request_body = request.json
-    expected_req_body = {'name': str, 'barcode': str}
+    expected_req_body = {'name': str, 'barcode': str, 'category':str}
     request_guard(request_body, expected_req_body)
 
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     name = request_body.get('name')
     barcode = request_body.get('barcode')
-    barcode_id = add_barcode(name, barcode, user_context)
+    category = request_body.get('category')
+    barcode_id = add_barcode(name, barcode, category, user_context)
     response = make_response()
     response.status_code = 201
     response.headers = {'Location': f'{request_path}/{barcode_id}'}
     return response
 
 
-@app.route(PRODUCTS_URI, methods=["GET"])
-def get_products_route(home_id):
+@app.route(GET_PRODUCTS_URI, methods=["GET"])
+def get_products_route(home_id, category):
     user_id = authenticate_user()
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
-    return get_products(user_context)
+    return get_products(user_context, category)
 
 
 
@@ -141,15 +143,15 @@ def add_product_route(home_id):
     user_id = authenticate_user()
 
     request_body = request.json
-    expected_req_body = {'name': str, 'quantity': int}
+    expected_req_body = {'name': str, 'quantity': int, 'category': str}
     request_guard(request_body, expected_req_body)
 
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     name = request_body.get('name')
     quantity = request_body.get('quantity')
-
-    product_id = add_product(name, quantity, user_context)
+    category = request_body.get('category')
+    product_id = add_product(name, quantity, category, user_context)
     headers = {'Location': f'{request_path}/{product_id}'}
     return jsonify({"productId": product_id}), 201, headers  # TODO: remove body
 

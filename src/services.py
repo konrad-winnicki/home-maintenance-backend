@@ -4,7 +4,7 @@ from src.errors import ResourceAlreadyExists, ResourceNotExists
 from src.persistence import get_product_by_name, insert_product, delete_shopping_list_item, \
     insert_shopping_list_item, update_product, \
     get_missing_products, get_bought_shopping_items, insert_home, insert_home_member, user_membership, \
-    get_name_by_barcode, insert_barcode, update_shopping_list_item, get_shopping_item_by_name, get_home_by_name
+    get_barcode_details, insert_barcode, update_shopping_list_item, get_shopping_item_by_name, get_home_by_name
 
 
 def generate_unique_id():
@@ -69,19 +69,19 @@ def add_shopping_list_item(name, quantity, user_context):
     return item_id
 
 
-def add_product(name, quantity, user_context):
+def add_product(name, quantity, category, user_context):
     try:
         product_id = generate_unique_id()
-        insert_product(product_id, name, quantity, user_context)
+        insert_product(product_id, name, quantity, category, user_context)
 
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
     return product_id
 
-def add_barcode(name, barcode, user_context):
+def add_barcode(name, barcode, category, user_context):
     try:
         barcode_id = generate_unique_id()
-        insert_barcode(barcode_id, name, barcode, user_context)
+        insert_barcode(barcode_id, name, barcode,category, user_context)
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
     return barcode_id
@@ -89,25 +89,26 @@ def add_barcode(name, barcode, user_context):
 
 
 
-def modify_store(name, user_context):
+def modify_store(name, category, user_context):
     product = get_product_by_name(name, user_context)
     if product:
         id = product.get("id")
         quantity = product.get('quantity') + 1
+        category = product.get('category')
         update_product(id, name, quantity, user_context)
-        return {'response': 'updated', 'name': name, 'productId': id, 'quantity': quantity}
+        return {'response': 'updated', 'name': name, 'productId': id, 'quantity': quantity, 'category': category}
     product_id = generate_unique_id()
     quantity = 1
-    insert_product(product_id, name, quantity, user_context)
-    return {'response': 'added', 'name': name, 'productId': product_id, 'quantity': quantity}
+    insert_product(product_id, name, quantity, category, user_context)
+    return {'response': 'added', 'name': name, 'productId': product_id, 'quantity': quantity, 'category': category}
 
 
 
 def modify_store_by_barcode (barcode, user_context):
-    name = get_name_by_barcode(barcode, user_context)
+    name, category = get_barcode_details(barcode, user_context)
     if not name:
         raise ResourceNotExists
-    return modify_store(name, user_context)
+    return modify_store(name, category, user_context)
 
 
 def modify_shopings(name, user_context):
@@ -128,7 +129,7 @@ def modify_shopings(name, user_context):
 
 
 def modify_shopings_by_barcode (barcode, user_context):
-    name = get_name_by_barcode(barcode, user_context)
+    name = get_barcode_details(barcode, user_context)
     if not name:
         raise ResourceNotExists
     return modify_shopings(name, user_context)

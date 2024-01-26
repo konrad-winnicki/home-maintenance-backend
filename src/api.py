@@ -187,15 +187,15 @@ def add_shopping_list_item_route(home_id):
     user_id = authenticate_user()
     request_body = request.json
 
-    expected_req_body = {'name': str, 'quantity': int}
+    expected_req_body = {'name': str, 'quantity': int, 'category':str}
     request_guard(request_body, expected_req_body)
 
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     name = request_body.get('name')
     quantity = request_body.get('quantity')
-
-    item_id = add_shopping_list_item(name, quantity, user_context)
+    category = request_body.get('category')
+    item_id = add_shopping_list_item(name, quantity, category, user_context)
     headers = {'Location': f'{request.path}/{item_id}'}
     socketio.emit('updateShoppingItems', room=home_id)
     return ({"response": item_id}), 201, headers  # TODO: remove body

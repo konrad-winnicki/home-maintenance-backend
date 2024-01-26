@@ -46,11 +46,11 @@ def add_bought_shopping_items(user_context):
         item_id = item.get('id')
         quantity = item.get('quantity')
         name = item.get('name')
-
+        category = item.get('category')
         # TODO: we should get Product object
         existing_product = get_product_by_name(name, user_context)
         if existing_product is None:
-            insert_product(item_id, name, quantity, user_context)
+            insert_product(item_id, name, quantity, category, user_context)
         else:
             product_id = existing_product.get('id')
             total_quantity = quantity + existing_product.get('quantity')
@@ -59,10 +59,10 @@ def add_bought_shopping_items(user_context):
     return "Products added to store"
 
 
-def add_shopping_list_item(name, quantity, user_context):
+def add_shopping_list_item(name, quantity, category, user_context):
     try:
         item_id = generate_unique_id()
-        insert_shopping_list_item(item_id, name, quantity, user_context)
+        insert_shopping_list_item(item_id, name, quantity, category, user_context)
 
     except ResourceAlreadyExists:
         raise ResourceAlreadyExists
@@ -105,13 +105,16 @@ def modify_store(name, category, user_context):
 
 
 def modify_store_by_barcode (barcode, user_context):
-    name, category = get_barcode_details(barcode, user_context)
-    if not name:
+    details = get_barcode_details(barcode, user_context)
+
+    if not details:
         raise ResourceNotExists
+    name = details.get('name')
+    category = details.get('category')
     return modify_store(name, category, user_context)
 
 
-def modify_shopings(name, user_context):
+def modify_shopings(name, category, user_context):
     shopping_item = get_shopping_item_by_name(name, user_context)
     print('modify', shopping_item)
     if shopping_item:
@@ -124,25 +127,28 @@ def modify_shopings(name, user_context):
 
     shopping_id = generate_unique_id()
     quantity = 1
-    insert_shopping_list_item(shopping_id, name, quantity, user_context)
+    insert_shopping_list_item(shopping_id, name, quantity, category, user_context)
     return {'response': 'added', 'name': name}
 
 
 def modify_shopings_by_barcode (barcode, user_context):
-    name = get_barcode_details(barcode, user_context)
-    if not name:
+    details = get_barcode_details(barcode, user_context)
+    if not details:
         raise ResourceNotExists
-    return modify_shopings(name, user_context)
+    name = details.get('name')
+    category = details.get('category')
+    return modify_shopings(name, category, user_context)
 
 
 def add_missing_products_to_shopping_list(user_context):
     missing_products = get_missing_products(user_context)
     for product in missing_products:
         name = product.get('name')
+        category = product.get('category')
         quantity = 1
         try:
             item_id = generate_unique_id()
-            insert_shopping_list_item(item_id, name, quantity, user_context)
+            insert_shopping_list_item(item_id, name, quantity,category, user_context)
         except ResourceAlreadyExists:
             continue
     return "Products added to shopping list"

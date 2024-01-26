@@ -2,13 +2,13 @@ from src.db import execute_fetch_all, execute_sql_query, execute_fetch, execute_
 from src.errors import ResourceNotExists
 
 
-def insert_shopping_list_item(item_id, name, quantity, user_context):
+def insert_shopping_list_item(item_id, name, quantity, category, user_context):
     _, home_id = user_context
     is_bought = False
     query_sql = """INSERT INTO shopping_list_items 
-                    (id, name, home_id, quantity, is_bought)
-                    VALUES (%s, %s, %s, %s, %s)"""
-    execute_sql_query(query_sql, [item_id, name, home_id, quantity, is_bought])
+                    (id, name, home_id, quantity, category, is_bought)
+                    VALUES (%s, %s, %s, %s, %s, %s)"""
+    execute_sql_query(query_sql, [item_id, name, home_id, quantity, category, is_bought])
 
 
 def insert_user(user_id, account_number, email):
@@ -44,7 +44,7 @@ def get_barcode_details(barcode, user_context):
     query_sql = "select * from barcodes where barcode=%s and home_id=%s"
     fetch_result = execute_fetch(query_sql, [barcode, home_id])
     if fetch_result:
-        return {"name": fetch_result.get('category'), 'name': fetch_result.get('name')}
+        return {"category": fetch_result.get('category'), 'name': fetch_result.get('name')}
 
     return None
 
@@ -65,9 +65,9 @@ def get_products(user_context, category):
 
 def get_missing_products(user_context):
     _, home_id = user_context
-    query_sql = 'select id, name from products where home_id=%s and quantity = 0'
+    query_sql = 'select id, name, category from products where home_id=%s and quantity = 0'
     return execute_fetch_all(query_sql, [home_id],
-                             lambda row: {"product_id": row["id"], "name": row["name"]})
+                             lambda row: {"product_id": row["id"], "name": row["name"], "category": row["category"]})
 
 def user_membership(home_id, user_id):
     query_sql = "SELECT EXISTS (SELECT 1 FROM home_members WHERE home_id=%s and user_id=%s)"
@@ -104,9 +104,9 @@ def get_shopping_item_by_id(item_id, user_context):
 
 def get_bought_shopping_items(user_context):
     _, home_id = user_context
-    query_sql = "select id, name, quantity from shopping_list_items where home_id=%s and is_bought = true"
+    query_sql = "select id, name, quantity, category from shopping_list_items where home_id=%s and is_bought = true"
     return execute_fetch_all(query_sql, [home_id],
-                             lambda row: {"id": row["id"], "quantity": row["quantity"], "name": row["name"]})
+                             lambda row: {"id": row["id"], "quantity": row["quantity"], "name": row["name"], "category": row["category"]})
 
 
 def get_user_id(user_account_number):

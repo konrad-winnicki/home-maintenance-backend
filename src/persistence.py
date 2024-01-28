@@ -57,10 +57,10 @@ def insert_product(product_id, name, quantity, category, user_context):
 
 def get_products(user_context, category):
     _, home_id = user_context
-    query_sql = 'select id, name, quantity from products where home_id=%s and category=%s order by quantity!=0, name'
+    query_sql = 'select id, name, quantity, category from products where home_id=%s and category=%s order by quantity!=0, name'
     return execute_fetch_all(query_sql, [home_id, category],
                              lambda row: {"product_id": row["id"], "quantity": row["quantity"],
-                                          "name": row["name"]})
+                                          "name": row["name"], "category": row["category"]})
 
 
 def get_missing_products(user_context):
@@ -78,10 +78,10 @@ def user_membership(home_id, user_id):
 
 def get_shopping_list_items(user_context):
     _, home_id = user_context
-    query_sql = "select id, name, quantity, is_bought from shopping_list_items where home_id=%s order by name"
+    query_sql = "select id, name, quantity, category, is_bought from shopping_list_items where home_id=%s order by name"
     return execute_fetch_all(query_sql, [home_id],
                              lambda row: {"product_id": row["id"], "quantity": row["quantity"], "name": row["name"],
-                                          "is_bought": row["is_bought"]})
+                                          "is_bought": row["is_bought"], "category": row["category"]})
 
 
 def get_shopping_item_by_name(name, user_context):

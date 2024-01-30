@@ -160,15 +160,15 @@ def add_product_route(home_id):
 def update_product_route(home_id, product_id):
     user_id = authenticate_user()
     request_body = request.json
-    expected_req_body = {'name': str, 'quantity': int}
+    expected_req_body = {'name': str, 'quantity': int, 'category':str}
     request_guard(request_body, expected_req_body)
 
     check_membership(home_id, user_id)
     user_context = (user_id, home_id)
     quantity = request_body.get('quantity')
     name = request_body.get('name')
-
-    update_product(product_id, name, quantity, user_context)
+    category = request_body.get('category')
+    update_product(product_id, name, quantity, category, user_context)
     return jsonify({"response": 'product data updated'}), 200
 
 

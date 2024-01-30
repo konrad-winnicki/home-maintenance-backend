@@ -54,7 +54,7 @@ def add_bought_shopping_items(user_context):
         else:
             product_id = existing_product.get('id')
             total_quantity = quantity + existing_product.get('quantity')
-            update_product(product_id, name, total_quantity, user_context)
+            update_product(product_id, name, total_quantity,category, user_context)
         delete_shopping_list_item(item_id, user_context)
     return "Products added to store"
 
@@ -95,7 +95,7 @@ def modify_store(name, category, user_context):
         id = product.get("id")
         quantity = product.get('quantity') + 1
         category = product.get('category')
-        update_product(id, name, quantity, user_context)
+        update_product(id, name, quantity, category, user_context)
         return {'response': 'updated', 'name': name, 'productId': id, 'quantity': quantity, 'category': category}
     product_id = generate_unique_id()
     quantity = 1

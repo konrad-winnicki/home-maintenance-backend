@@ -268,17 +268,18 @@ def update_shopping_item_route(home_id, id):
     user_id = authenticate_user()
     user_context = (user_id, home_id)
     request_body = request.json
-    expected_req_body = {'name': str, 'quantity': int, 'is_bought': bool}
+    expected_req_body = {'name': str, 'quantity': int, 'is_bought': bool, 'category': str}
     request_guard(request_body, expected_req_body)
     check_membership(home_id, user_id)
 
     is_bought = request_body.get("is_bought")
     quantity = request_body.get('quantity')
     name = request_body.get('name')
+    category = request_body.get('category')
     item_id = id
     # FIXME: invalid use of or and None
 
-    update_shopping_list_item(item_id, name, quantity, is_bought, user_context)
+    update_shopping_list_item(item_id, name, quantity, is_bought, category, user_context)
     socketio.emit('updateShoppingItems', room=home_id)
     return jsonify({"response": 'shopping list item updated'}), 200
 

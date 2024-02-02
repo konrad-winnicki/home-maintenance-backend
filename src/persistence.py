@@ -194,12 +194,12 @@ def update_product(product_id, name, quantity, category, user_context):
 
 
 
-def update_shopping_list_item(item_id, name, quantity, is_bought, user_context):
+def update_shopping_list_item(item_id, name, quantity, is_bought, category, user_context):
     _, home_id = user_context
     update_barcodes_query = "update barcodes set name=%s where name = (SELECT name FROM shopping_list_items WHERE id=%s and home_id=%s)"
     update_barcodes_values = [name, item_id, home_id]
-    update_shoping_item_query = "update shopping_list_items SET name=%s, quantity=%s, is_bought=%s where id=%s and home_id=%s"
-    update_shiping_item_values = [name, quantity, is_bought, item_id, home_id]
+    update_shoping_item_query = "update shopping_list_items SET name=%s, quantity=%s, is_bought=%s, category=%s where id=%s and home_id=%s"
+    update_shiping_item_values = [name, quantity, is_bought, category, item_id, home_id]
     queries = [(update_barcodes_query, update_barcodes_values), (update_shoping_item_query, update_shiping_item_values)]
     execute_sql_transaction(queries)
 

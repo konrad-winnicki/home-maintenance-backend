@@ -13,6 +13,9 @@ class SocketHandShakeError(Exception):
     pass
 
 class ResourceAlreadyExists(Exception):
+    def __init__(self):
+        self.message = "Product already exists"
+        super().__init__(self.message)
     pass
 
 
@@ -45,7 +48,6 @@ class InvalidSessionCode(Exception):
 
 
 def error_handler(exception):
-    print('aaaaaaaaaa', exception)
 
     if isinstance(exception, (InvalidSessionCode, NoSessionCode)):
         print(exception)

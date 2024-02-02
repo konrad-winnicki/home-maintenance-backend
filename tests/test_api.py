@@ -63,18 +63,18 @@ def random_number(min=0, max=100):
     return random.randint(min, max)
 
 
-def some_product(name=None, quantity=None):
+def some_product(category, name=None, quantity=None):
     return {'name': name if name is not None else random_string(10)
-        , 'quantity': quantity if quantity is not None else random_number()}
+        , 'quantity': quantity if quantity is not None else random_number(), 'category': category}
 
 
 def some_home(name=None):
     return {'name': name if name is not None else random_string(10)}
 
 
-def some_shopping_item(name=None, quantity=None):
+def some_shopping_item(category, name=None, quantity=None):
     return {'name': name if name is not None else random_string(10),
-            'quantity': quantity if quantity is not None else random_number()}
+            'quantity': quantity if quantity is not None else random_number(), 'category': category}
 
 
 def test_unauthenticated_access():
@@ -151,10 +151,10 @@ def test_home_membership(user_token):
     # when
     response1 = (app.test_client()
                  .post(products_endpoint_with_existing_home_id, headers={'Authorization': user_token},
-                       json=some_product('Milk', 2)))
+                       json= some_product('fridge', 'Milk', 2)))
     response2 = (app.test_client()
                  .post(products_endpoint_with_non_existing_home_id, headers={'Authorization': user_token},
-                      json=some_product('Bread', 1)))
+                      json=some_product('fridge','Bread', 1)))
 #
     # then
 
@@ -169,23 +169,24 @@ def test_home_membership(user_token):
 def test_adding_products(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    #print('dddddddd', home_location)
+    category = 'fridge'
     products_endpoint = f'{home_location}/store/products'
 
     # when
     response1 = (app.test_client()
                  .post(products_endpoint, headers={'Authorization': user_token},
-                       json=some_product('Milk', 2)))
+                       json=some_product(category, 'Milk', 2)))
     response2 = (app.test_client()
                  .post(products_endpoint, headers={'Authorization': user_token},
-                       json=some_product('Bread', 1)))
+                       json=some_product(category, 'Bread', 1)))
 
     # then
     assert response1.status_code == 201
     assert response2.status_code == 201
-    _, body = list_products(user_token, home_location)
+    _, body = list_products(user_token, home_location, category)
     assert_that(body).extracting('name', sort='name').contains_only('Bread', 'Milk')
     assert_that(body).extracting('quantity', sort='name').contains_only(1, 2)
+    assert_that(body).extracting('category').contains_only('fridge', 'fridge')
     assert_that(body).extracting('product_id').is_not_empty()
 
 
@@ -195,7 +196,7 @@ def test_adding_products(user_token):
 def test_adding_product_with_same_name_fails(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    product = some_product()
+    product = some_product(category='fridge')
     r = add_product(user_token, home_location, product)
     print('first r', r)
     # when
@@ -210,18 +211,21 @@ def test_adding_product_with_same_name_fails(user_token):
 def test_list_products(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    add_product(user_token, home_location, some_product('P1', 1))
-    add_product(user_token, home_location, some_product('P2', 2))
+    category = 'fridge'
+    add_product(user_token, home_location, some_product(category,'P1', 1))
+    add_product(user_token, home_location, some_product(category, 'P2', 2))
 
     # when
     response = (app.test_client()
-                .get(f'{home_location}/store/products', headers={'Authorization': user_token}))
+                .get(f'{home_location}/store/{category}/products', headers={'Authorization': user_token}))
 
     # then
     assert response.status_code == 200
     body = json.loads(response.data.decode('utf-8'))
     assert_that(body).extracting('name', sort='name').contains_only('P1', 'P2')
     assert_that(body).extracting('quantity', sort='name').contains_only(1, 2)
+    assert_that(body).extracting('category', sort='category').contains_only('fridge', 'fridge')
+
     assert_that(body).extracting('product_id').is_not_empty()
 
 
@@ -230,24 +234,26 @@ def test_user_lists_only_own_home_products(user_tokens):
     user1_token, user2_token = user_tokens
     home1 = add_home(user1_token, some_home())
     home2 = add_home(user2_token, some_home())
-    add_product(user1_token, home1, some_product('Product', 1))
-    add_product(user2_token, home2, some_product('Product', 2))
+    add_product(user1_token, home1, some_product('fridge', 'Product', 1))
+    add_product(user2_token, home2, some_product('other', 'Product', 2))
 
     # when
-    _, body = list_products(user2_token, home2)
+    _, body = list_products(user2_token, home2, 'other')
 
     # then
     assert len(body) == 1
     assert body[0]['name'] == 'Product'
     assert body[0]['quantity'] == 2
+    assert body[0]['category'] == 'other'
 
 
 def test_update_product(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    product = some_product('Product', 1)
+    category = 'fridge'
+    product = some_product(category,'Product', 1)
     location = add_product(user_token, home_location, product)
-    updated_product = some_product('Updated name', 999)
+    updated_product = some_product(category,'Updated name', 999)
 
     # when
     response = (app.test_client()
@@ -255,28 +261,29 @@ def test_update_product(user_token):
 
     # then
     assert response.status_code == 200
-    _, body = list_products(user_token, home_location)
+    _, body = list_products(user_token, home_location, category)
     assert len(body) == 1
     assert_that(body[0]).is_equal_to(updated_product, ignore='product_id')
 
 
 def test_delete_product(user_token):
     home_location = add_home(user_token, some_home())
-    product_location = add_product(user_token, home_location, some_product())
+    category = 'fridge'
+    product_location = add_product(user_token, home_location, some_product(category))
 
-    status_code, products_in_database_before_deletion = list_products(user_token, home_location)
+    status_code, products_in_database_before_deletion = list_products(user_token, home_location, category)
     assert len(products_in_database_before_deletion) == 1
 
     response = app.test_client().delete(product_location, headers={'Authorization': user_token})
     assert response.status_code == 200
 
-    status_code, products_in_database_after_deletion = list_products(user_token, home_location)
+    status_code, products_in_database_after_deletion = list_products(user_token, home_location, category)
     assert len(products_in_database_after_deletion) == 0
 
 
 def test_delete_shopping_item(user_token):
     home_location = add_home(user_token, some_home())
-    location = add_shopping_item(user_token, home_location, some_product())
+    location = add_shopping_item(user_token, home_location, some_product('fridge'))
 
     status_code, products_in_database_before_deletion = list_shopping_items(user_token, home_location)
     assert len(products_in_database_before_deletion) == 1
@@ -284,14 +291,15 @@ def test_delete_shopping_item(user_token):
     response = app.test_client().delete(location, headers={'Authorization': user_token})
     assert response.status_code == 200
 
-    status_code, products_in_database_after_deletion = list_products(user_token, home_location)
+    status_code, products_in_database_after_deletion = list_products(user_token, home_location, 'fridge')
     assert len(products_in_database_after_deletion) == 0
 
 
 def test_delete_product_fails_if_non_existing_id(user_token):
     home_location = add_home(user_token, some_home())
-    add_product(user_token, home_location, some_product())
-    status_code, products_in_database_before_deletion = list_products(user_token, home_location)
+    category = 'fridge'
+    add_product(user_token, home_location, some_product(category))
+    status_code, products_in_database_before_deletion = list_products(user_token, home_location, category)
     assert len(products_in_database_before_deletion) == 1
 
     non_existing_id = '9797603a-6520-42f3-adba-c78988b8ff9f'
@@ -299,13 +307,13 @@ def test_delete_product_fails_if_non_existing_id(user_token):
                                                  headers={'Authorization': user_token})
 
     assert deletion_response.status_code == 404
-    status_code, products_in_database_after_deletion = list_products(user_token, home_location)
+    status_code, products_in_database_after_deletion = list_products(user_token, home_location, category)
     assert len(products_in_database_after_deletion) == 1
 
 
 def test_delete_shopping_item_fails_if_non_existing_id(user_token):
     home_location = add_home(user_token, some_home())
-    add_shopping_item(user_token, home_location, some_product())
+    add_shopping_item(user_token, home_location, some_product('fridge'))
     status_code, products_in_database_before_deletion = list_shopping_items(user_token, home_location)
     assert len(products_in_database_before_deletion) == 1
 
@@ -321,7 +329,7 @@ def test_delete_shopping_item_fails_if_non_existing_id(user_token):
 def test_adding_shopping_item(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    shopping_item = some_shopping_item()
+    shopping_item = some_shopping_item('other')
 
     # when
     response = (app.test_client()
@@ -340,9 +348,9 @@ def test_adding_shopping_item(user_token):
 def test_update_shopping_item(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    product = some_shopping_item('Product', 1)
+    product = some_shopping_item('other','Product', 1)
     product_location = add_shopping_item(user_token, home_location, product)
-    updated_shopping_item = some_shopping_item('Updated name', 999)
+    updated_shopping_item = some_shopping_item('fridge', 'Updated name', 999)
     updated_shopping_item['is_bought'] = False
 
     # when
@@ -359,7 +367,7 @@ def test_update_shopping_item(user_token):
 def test_list_shopping_items(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    shopping_item = some_shopping_item('Name', 9)
+    shopping_item = some_shopping_item('fridge','Name', 9)
     add_shopping_item(user_token, home_location, shopping_item)
 
     # when
@@ -380,8 +388,8 @@ def test_user_lists_only_own_shopping_items(user_tokens):
     user1_token, user2_token = user_tokens
     home1 = add_home(user1_token, some_home())
     home2 = add_home(user2_token, some_home())
-    add_shopping_item(user1_token, home1, some_shopping_item('Product', 1))
-    add_shopping_item(user2_token, home2, some_shopping_item('Product', 2))
+    add_shopping_item(user1_token, home1, some_shopping_item('fridge','Product', 1))
+    add_shopping_item(user2_token, home2, some_shopping_item('larder','Product', 2))
 
     # when
     _, body = list_shopping_items(user2_token, home2)
@@ -390,16 +398,17 @@ def test_user_lists_only_own_shopping_items(user_tokens):
     assert len(body) == 1
     assert body[0]['name'] == 'Product'
     assert body[0]['quantity'] == 2
+    assert body[0]['category'] == 'larder'
 
 
 def test_adding_missing_products_to_empty_shopping_list(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    missing_product_1 = some_product(name='missing_product_1', quantity=0)
-    missing_product_2 = some_product(name='missing_product_2', quantity=0)
-    products = [missing_product_1, some_product(quantity=20), some_product(quantity=1), missing_product_2]
+    missing_product_1 = some_product('fridge', name='missing_product_1', quantity=0)
+    missing_product_2 = some_product('fridge',name='missing_product_2', quantity=0)
+    products = [missing_product_1, some_product('fridge', quantity=20), some_product('fridge', quantity=1), missing_product_2]
     list(map(lambda p: add_product(user_token, home_location, p), products))
-    _, products_body = list_products(user_token, home_location)
+    _, products_body = list_products(user_token, home_location, 'fridge')
     assert len(products_body) == 4
 
     # when
@@ -419,19 +428,19 @@ def test_adding_missing_products_to_empty_shopping_list(user_token):
 def test_adding_missing_products_to_prefilled_shopping_list(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    some_item = some_shopping_item()
-    other_shopping_item = some_shopping_item()
+    some_item = some_shopping_item('fridge')
+    other_shopping_item = some_shopping_item('fridge')
     add_shopping_item(user_token, home_location, some_item)
     add_shopping_item(user_token, home_location, other_shopping_item)
     _, items_body = list_shopping_items(user_token, home_location)
     assert len(items_body) == 2
 
     # and
-    missing_product_with_same_name = some_product(name=some_item['name'], quantity=0)
-    other_missing_product = some_product(quantity=0)
+    missing_product_with_same_name = some_product('fridge', name=some_item['name'], quantity=0)
+    other_missing_product = some_product('fridge', quantity=0)
     add_product(user_token, home_location, missing_product_with_same_name)
     add_product(user_token, home_location, other_missing_product)
-    _, products_body = list_products(user_token, home_location)
+    _, products_body = list_products(user_token, home_location, 'fridge')
     assert len(products_body) == 2
 
     expected_shopping_items = [
@@ -455,7 +464,7 @@ def test_adding_missing_products_to_prefilled_shopping_list(user_token):
 def test_adding_not_bought_shopping_items_to_products(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    add_shopping_item(user_token, home_location, some_shopping_item(quantity=random_number(1, 100)))
+    add_shopping_item(user_token, home_location, some_shopping_item('fridge', quantity=random_number(1, 100)))
 
     # when
     response = (app.test_client()
@@ -463,19 +472,19 @@ def test_adding_not_bought_shopping_items_to_products(user_token):
 
     # then
     assert response.status_code == 200
-    status, products = list_products(user_token, home_location)
+    status, products = list_products(user_token, home_location, 'fridge')
     assert len(products) == 0
 
 
 def test_adding_bought_shopping_items_to_products(user_token):
     # given
     home_location = add_home(user_token, some_home())
-    product = some_product()
+    product = some_product('fridge')
     add_product(user_token, home_location, product)
 
     # and
-    new_bought_item = some_shopping_item(quantity=random_number(1, 100))
-    existing_bought_item = some_shopping_item(name=product['name'], quantity=random_number(1, 100))
+    new_bought_item = some_shopping_item('fridge', quantity=random_number(1, 100))
+    existing_bought_item = some_shopping_item('fridge', name=product['name'], quantity=random_number(1, 100))
     new_bought_item_location = add_shopping_item(user_token, home_location, new_bought_item)
     existing_bought_item_location = add_shopping_item(user_token, home_location, existing_bought_item)
 
@@ -490,7 +499,7 @@ def test_adding_bought_shopping_items_to_products(user_token):
 
     # then
     assert response.status_code == 200
-    status, products = list_products(user_token, home_location)
+    status, products = list_products(user_token, home_location, 'fridge')
     assert len(products) == 2
     existing_product = next(filter(lambda p: p['name'] == product['name'], products))
     new_product = next(filter(lambda p: p['name'] == new_bought_item['name'], products))
@@ -526,8 +535,8 @@ def add_shopping_item(token, home_location, shopping_item):
     return response.headers['Location']
 
 
-def list_products(token, home_location):
-    return list_resources(token, f'{home_location}/store/products')
+def list_products(token, home_location, category):
+    return list_resources(token, f'{home_location}/store/{category}/products')
 
 
 def list_shopping_items(token, home_location):
